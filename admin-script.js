@@ -1,294 +1,272 @@
-// ===== متغيرات عامة =====
-let allUsers = {};
-let categories = {};
+const ADMIN_PASSWORD = "admin123";
 
-// ===== تحميل البيانات =====
-function loadAllData() {
-    db.ref('users').on('value', (snapshot) => {
-        allUsers = snapshot.val() || {};
-        updateStats();
-        renderPending();
-        renderApproved();
-        renderRejected();
-        renderViral();
-    });
-    
-    db.ref('categories').on('value', (snapshot) => {
-        categories = snapshot.val() || {};
-        renderCategories();
-    });
+// ✅ تهيئة EmailJS
+emailjs.init('YOUR_PUBLIC_KEY'); // 🔴 ضع مفتاحك العام هنا
+
+function loginAdmin() {
+    const pass = document.getElementById('admin-password').value;
+    if (pass === ADMIN_PASSWORD) {
+        document.getElementById('admin-login').style.display = 'none';
+        document.getElementById('admin-dashboard').style.display = 'block';
+        loadAdminData();
+        loadCategories();
+        loadTexts();
+        showNotification('✅ مرحباً أيها المسؤول!', 'success');
+    } else {
+        document.getElementById('login-error').textContent = '❌ كلمة مرور خاطئة!';
+    }
 }
 
-// ===== تحديث الإحصائيات =====
-function updateStats() {
-    const users = Object.values(allUsers);
-    const total = users.length;
-    const pending = users.filter(u => u.status === 'pending').length;
-    const approved = users.filter(u => u.status === 'approved').length;
-    const rejected = users.filter(u => u.status === 'rejected').length;
-    
-    document.getElementById('stat-total').textContent = total;
-    document.getElementById('stat-pending').textContent = pending;
-    document.getElementById('stat-approved').textContent = approved;
-    document.getElementById('stat-rejected').textContent = rejected;
+// ===== تحميل بيانات المسؤول =====
+async function loadAdminData() {
+    try {
+        const users = await loadFromFirebase('users');
+        console.log('Users loaded:', users);
+        
+        if (!users) {
+            document.getElementById('pending-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">لا يوجد مستخدمين</td></tr>';
+            document.getElementById('approved-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">لا يوجد مستخدمين</td></tr>';
+            return;
+        }
+
+        const userList = Object.entries(users).map(([key, val]) => ({ ...val, uid: key }));
+        const pending = userList.filter(u => u.status === 'pending');
+        const approved = userList.filter(u => u.status === 'approved');
+
+        document.getElementById('stat-total').textContent = userList.length;
+        document.getElementById('stat-pending').textContent = pending.length;
+        document.getElementById('stat-approved').textContent = approved.length;
+
+        renderPending(pending);
+        renderApproved(approved);
+    } catch (error) {
+        console.error('Error loading admin data:', error);
+        showNotification('❌ خطأ في تحميل البيانات', 'error');
+    }
 }
 
-// ===== عرض المعلقين =====
-function renderPending() {
+function renderPending(users) {
     const tbody = document.getElementById('pending-table-body');
-    const users = Object.values(allUsers).filter(u => u.status === 'pending');
-    
     if (users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px;">No pending requests</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">✨ لا يوجد طلبات معلقة</td></tr>';
         return;
     }
-    
-    tbody.innerHTML = users.map((user, index) => `
+    tbody.innerHTML = users.map(u => `
         <tr>
-            <td><img src="${user.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
-            <td><strong>${user.username || 'Unknown'}</strong></td>
-            <td>${user.email || 'No email'}</td>
-            <td><span class="category-chip">${user.categoryId || 'N/A'}</span></td>
-            <td>${user.paymentMethod || 'N/A'}</td>
-            <td style="font-weight:400; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${user.paymentNote || ''}">
-                ${user.paymentNote || '-'}
-            </td>
-            <td><span class="badge badge-pending">Pending</span></td>
+            <td><img src="${u.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
+            <td><strong>${u.username || 'غير معروف'}</strong></td>
+            <td>${u.email || 'لا يوجد بريد'}</td>
+            <td><span class="category-chip">${u.categoryId || 'N/A'}</span></td>
+            <td>${u.paymentMethod || 'N/A'}</td>
+            <td><span class="badge-pending">⏳ قيد الانتظار</span></td>
             <td>
-                <button class="admin-btn approve" onclick="approveUser('${user.uid}')">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button class="admin-btn reject" onclick="rejectUser('${user.uid}')">
-                    <i class="fas fa-times"></i>
-                </button>
-                <button class="admin-btn view" onclick="viewUser('${user.uid}')">
-                    <i class="fas fa-eye"></i>
-                </button>
+                <button class="admin-btn approve" onclick="approveUser('${u.uid}')"><i class="fas fa-check"></i> قبول</button>
+                <button class="admin-btn reject" onclick="rejectUser('${u.uid}')"><i class="fas fa-times"></i> رفض</button>
+                <button class="admin-btn view" onclick="viewUser('${u.uid}')"><i class="fas fa-eye"></i></button>
             </td>
         </tr>
     `).join('');
 }
 
-// ===== عرض المقبولين =====
-function renderApproved() {
+function renderApproved(users) {
     const tbody = document.getElementById('approved-table-body');
-    const users = Object.values(allUsers).filter(u => u.status === 'approved');
-    
     if (users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;">No approved users yet</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">لا يوجد مستخدمين مفعلين</td></tr>';
         return;
     }
-    
-    tbody.innerHTML = users.map((user) => `
+    tbody.innerHTML = users.map(u => `
         <tr>
-            <td><img src="${user.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
-            <td><strong>${user.username || 'Unknown'}</strong></td>
-            <td>${user.email || 'No email'}</td>
-            <td><span class="category-chip">${user.categoryId || 'N/A'}</span></td>
-            <td style="font-weight:400; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                ${user.bio ? user.bio.substring(0, 30) + '...' : '-'}
-            </td>
-            <td><span class="badge badge-approved">Approved</span></td>
+            <td><img src="${u.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
+            <td><strong>${u.username || 'غير معروف'}</strong></td>
+            <td>${u.email || 'لا يوجد بريد'}</td>
+            <td><span class="category-chip">${u.categoryId || 'N/A'}</span></td>
+            <td><span class="badge-approved">✅ مفعل</span></td>
             <td>
-                <button class="admin-btn view" onclick="viewUser('${user.uid}')">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button class="admin-btn reject" onclick="rejectUser('${user.uid}')">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button class="admin-btn view" onclick="viewUser('${u.uid}')"><i class="fas fa-eye"></i></button>
+                <button class="admin-btn reject" onclick="rejectUser('${u.uid}')"><i class="fas fa-times"></i></button>
             </td>
         </tr>
     `).join('');
 }
 
-// ===== عرض المرفوضين =====
-function renderRejected() {
-    const tbody = document.getElementById('rejected-table-body');
-    const users = Object.values(allUsers).filter(u => u.status === 'rejected');
-    
-    if (users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px;">No rejected users</td></tr>`;
-        return;
+// ===== ✅ دالة إرسال إيميل التأكيد للمستخدم (هنا مكان الكود) =====
+async function sendApprovalEmail(user) {
+    try {
+        const templateParams = {
+            username: user.username || 'مستخدم',
+            email: user.email || '',
+            category: user.categoryId || 'لا يوجد',
+            approve_date: new Date().toLocaleString('ar-DZ')
+        };
+        
+        await emailjs.send(
+            'service_visionplus',        // 🔴 ضع SERVICE_ID الخاص بك
+            'template_user_approved',    // 🔴 ضع TEMPLATE_ID الخاص بك
+            templateParams
+        );
+        console.log('✅ Approval email sent to user');
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending approval email:', error);
+        return false;
     }
-    
-    tbody.innerHTML = users.map((user) => `
-        <tr>
-            <td><img src="${user.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
-            <td><strong>${user.username || 'Unknown'}</strong></td>
-            <td>${user.email || 'No email'}</td>
-            <td style="font-weight:400;">${user.rejectionReason || 'No reason provided'}</td>
-            <td><span class="badge badge-rejected">Rejected</span></td>
-            <td>
-                <button class="admin-btn restore" onclick="restoreUser('${user.uid}')">
-                    <i class="fas fa-undo"></i> Restore
-                </button>
-                <button class="admin-btn delete" onclick="deleteUserPermanently('${user.uid}')">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
 }
 
-// ===== عرض الكاتيغوريس =====
-function renderCategories() {
-    const container = document.getElementById('categories-list');
-    if (!categories || Object.keys(categories).length === 0) {
-        container.innerHTML = '<p style="color:#5a6f73;">No categories yet</p>';
-        return;
+// ===== ✅ دالة إرسال إيميل الرفض للمستخدم (هنا مكان الكود) =====
+async function sendRejectionEmail(user, reason) {
+    try {
+        const templateParams = {
+            username: user.username || 'مستخدم',
+            email: user.email || '',
+            reason: reason || 'لم يتم تحديد سبب'
+        };
+        
+        await emailjs.send(
+            'service_visionplus',        // 🔴 ضع SERVICE_ID الخاص بك
+            'template_user_rejected',    // 🔴 ضع TEMPLATE_ID الخاص بك
+            templateParams
+        );
+        console.log('✅ Rejection email sent to user');
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending rejection email:', error);
+        return false;
     }
-    
-    container.innerHTML = Object.values(categories).map(cat => `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 15px; background:#f4f9fa; border-radius:12px; margin-bottom:8px; border-left:4px solid ${cat.color || '#b0e0e6'};">
-            <div>
-                <i class="fas ${cat.icon}" style="color:${cat.color || '#b0e0e6'}; width:30px;"></i>
-                <strong>${cat.name}</strong>
-                <span style="color:#5a6f73; font-weight:400; margin-left:10px;">${cat.id}</span>
-            </div>
-            <button class="admin-btn delete" onclick="deleteCategory('${cat.id}')">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    `).join('');
 }
 
-// ===== عرض Viral =====
-function renderViral() {
-    const container = document.getElementById('viral-list');
-    const users = Object.values(allUsers).filter(u => u.status === 'approved' && u.viralRank);
-    
-    // ترتيب حسب الترتيب
-    users.sort((a, b) => (a.viralRank || 999) - (b.viralRank || 999));
-    
-    if (users.length === 0) {
-        container.innerHTML = '<p style="color:#5a6f73;">No users in viral yet. Approve users to add them.</p>';
-        return;
-    }
-    
-    container.innerHTML = users.map((user, index) => `
-        <div class="viral-item" draggable="true" data-uid="${user.uid}" style="cursor:grab;">
-            <span class="rank">#${index + 1}</span>
-            <img src="${user.profilePic || 'img/default-avatar.jpg'}" />
-            <div class="info">
-                ${user.username}
-                <small>${user.categoryId}</small>
-            </div>
-            <div>
-                <span class="badge badge-approved">⭐ ${user.viralRank || index + 1}</span>
-                <button class="admin-btn reject" onclick="removeFromViral('${user.uid}')" style="margin-left:10px;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-// ===== دوال الإجراءات =====
-
-// قبول المستخدم
+// ===== إجراءات المسؤول =====
 async function approveUser(uid) {
-    if (confirm('Approve this user?')) {
-        await db.ref(`users/${uid}`).update({
-            status: 'approved',
-            approvedAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        showNotification('✅ User approved!', 'success');
+    if (confirm('هل تريد قبول هذا المستخدم؟')) {
+        try {
+            const user = await loadFromFirebase(`users/${uid}`);
+            
+            // ✅ إرسال إيميل تأكيد للمستخدم
+            if (user && user.email) {
+                await sendApprovalEmail(user);
+                alert(`📧 تم إرسال إيميل إلى ${user.email} لإعلامه بقبول طلبه`);
+            }
+            
+            await saveToFirebase(`users/${uid}/status`, 'approved');
+            await saveToFirebase(`users/${uid}/approvedAt`, new Date().toISOString());
+            
+            showNotification('✅ تم قبول المستخدم!', 'success');
+            loadAdminData();
+        } catch (error) {
+            showNotification('❌ حدث خطأ', 'error');
+        }
     }
 }
 
-// رفض المستخدم مع سبب
 async function rejectUser(uid) {
-    const reason = prompt('Reason for rejection:');
+    const reason = prompt('سبب الرفض:');
     if (reason !== null) {
-        await db.ref(`users/${uid}`).update({
-            status: 'rejected',
-            rejectionReason: reason || 'No reason provided',
-            rejectedAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        showNotification('❌ User rejected', 'error');
+        try {
+            const user = await loadFromFirebase(`users/${uid}`);
+            
+            // ✅ إرسال إيميل رفض للمستخدم
+            if (user && user.email) {
+                await sendRejectionEmail(user, reason);
+            }
+            
+            await saveToFirebase(`users/${uid}/status`, 'rejected');
+            await saveToFirebase(`users/${uid}/rejectionReason`, reason || 'لا يوجد سبب');
+            showNotification('❌ تم رفض المستخدم', 'error');
+            loadAdminData();
+        } catch (error) {
+            showNotification('❌ حدث خطأ', 'error');
+        }
     }
 }
 
-// استعادة مستخدم
-async function restoreUser(uid) {
-    if (confirm('Restore this user?')) {
-        await db.ref(`users/${uid}`).update({
-            status: 'pending',
-            rejectionReason: null
-        });
-        showNotification('🔄 User restored to pending', 'success');
-    }
-}
-
-// حذف مستخدم نهائياً
-async function deleteUserPermanently(uid) {
-    if (confirm('⚠️ Delete this user permanently? This cannot be undone!')) {
-        await db.ref(`users/${uid}`).remove();
-        showNotification('🗑️ User deleted permanently', 'error');
-    }
-}
-
-// عرض بيانات المستخدم
 function viewUser(uid) {
-    const user = allUsers[uid];
-    if (!user) {
-        showNotification('User not found', 'error');
-        return;
-    }
-    
-    alert(`📊 User Details\n
-    Username: ${user.username || 'N/A'}\n
-    Email: ${user.email || 'N/A'}\n
-    Category: ${user.categoryId || 'N/A'}\n
-    Status: ${user.status || 'N/A'}\n
-    Bio: ${user.bio || 'Not provided'}\n
-    Portfolio: ${user.portfolioLink || 'Not provided'}\n
-    Phone: ${user.phone || 'Not provided'}\n
-    Payment Method: ${user.paymentMethod || 'N/A'}\n
-    Payment Note: ${user.paymentNote || 'N/A'}\n
-    Created: ${user.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}`);
+    alert(`📊 بيانات المستخدم\n\nعرض في Firebase:\n${FIREBASE_URL}users/${uid}.json`);
 }
 
-// إضافة كاتيغوري
+// ===== إدارة التخصصات =====
+async function loadCategories() {
+    try {
+        const categories = await loadFromFirebase('categories');
+        const container = document.getElementById('categories-list');
+        if (!categories) {
+            container.innerHTML = '<p style="color:#5a6f73;">لا توجد تخصصات</p>';
+            return;
+        }
+        container.innerHTML = Object.values(categories).map(cat => `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 15px; background:#f4f9fa; border-radius:12px; margin-bottom:8px; border-left:4px solid ${cat.color || '#b0e0e6'};">
+                <div>
+                    <i class="fas ${cat.icon}" style="color:${cat.color || '#b0e0e6'}; width:30px;"></i>
+                    <strong>${cat.name}</strong>
+                    <span style="color:#5a6f73; font-weight:400; margin-left:10px;">${cat.id}</span>
+                </div>
+                <button class="admin-btn delete" onclick="deleteCategory('${cat.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
 async function addCategory() {
     const name = document.getElementById('cat-name').value.trim();
     const icon = document.getElementById('cat-icon').value.trim();
     const color = document.getElementById('cat-color').value;
     
     if (!name || !icon) {
-        showNotification('❌ Please enter name and icon', 'error');
+        showNotification('❌ يرجى إدخال الاسم والأيقونة', 'error');
         return;
     }
     
     const id = name.toLowerCase().replace(/\s+/g, '_');
-    
-    await db.ref(`categories/${id}`).set({
-        id: id,
-        name: name,
-        icon: icon,
-        color: color
-    });
-    
-    document.getElementById('cat-name').value = '';
-    document.getElementById('cat-icon').value = '';
-    showNotification('✅ Category added!', 'success');
-}
-
-// حذف كاتيغوري
-async function deleteCategory(id) {
-    if (confirm(`Delete category "${id}"?`)) {
-        await db.ref(`categories/${id}`).remove();
-        showNotification('🗑️ Category deleted', 'error');
+    try {
+        await saveToFirebase(`categories/${id}`, { id, name, icon, color });
+        document.getElementById('cat-name').value = '';
+        document.getElementById('cat-icon').value = '';
+        showNotification('✅ تم إضافة التخصص!', 'success');
+        loadCategories();
+    } catch (error) {
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// إزالة من Viral
-async function removeFromViral(uid) {
-    if (confirm('Remove this user from viral?')) {
-        await db.ref(`users/${uid}`).update({
-            viralRank: null
-        });
-        showNotification('⭐ Removed from viral', 'error');
+async function deleteCategory(id) {
+    if (confirm(`حذف التخصص "${id}"؟`)) {
+        try {
+            await deleteFromFirebase(`categories/${id}`);
+            showNotification('🗑️ تم حذف التخصص', 'error');
+            loadCategories();
+        } catch (error) {
+            showNotification('❌ حدث خطأ', 'error');
+        }
+    }
+}
+
+// ===== إدارة النصوص =====
+async function loadTexts() {
+    try {
+        const texts = await loadFromFirebase('site_texts');
+        if (texts) {
+            document.getElementById('edit-hero-title').value = texts.hero_title || '';
+            document.getElementById('edit-hero-subtitle').value = texts.hero_subtitle || '';
+            document.getElementById('edit-waiting-text').value = texts.waiting_message || '';
+            document.getElementById('edit-footer-text').value = texts.footer_text || '';
+        }
+    } catch (error) {
+        console.error('Error loading texts:', error);
+    }
+}
+
+async function saveTexts() {
+    const texts = {
+        hero_title: document.getElementById('edit-hero-title').value.trim(),
+        hero_subtitle: document.getElementById('edit-hero-subtitle').value.trim(),
+        waiting_message: document.getElementById('edit-waiting-text').value.trim(),
+        footer_text: document.getElementById('edit-footer-text').value.trim()
+    };
+    try {
+        await saveToFirebase('site_texts', texts);
+        showNotification('✅ تم حفظ النصوص!', 'success');
+    } catch (error) {
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
@@ -296,26 +274,13 @@ async function removeFromViral(uid) {
 function switchTab(tab) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
-    
     document.querySelector(`.admin-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
     document.getElementById(`panel-${tab}`).classList.add('active');
 }
 
-// ===== تهيئة الصفحة =====
+// ===== تحميل الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
-    loadAllData();
+    const style = document.createElement('style');
+    style.textContent = `@keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }`;
+    document.head.appendChild(style);
 });
-
-// ===== إشعارات =====
-function showNotification(message, type) {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100px)';
-        notification.style.transition = '0.5s';
-        setTimeout(() => notification.remove(), 500);
-    }, 4000);
-}
