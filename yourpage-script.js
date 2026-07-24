@@ -9,7 +9,7 @@ let userData = {};
 let selectedCategoryId = null;
 
 // ✅ تهيئة EmailJS
-emailjs.init('YOUR_PUBLIC_KEY'); // 🔴 ضع مفتاحك العام هنا
+emailjs.init('CKWFEy1mLeWLKlkkC'); // 🔴 ضع مفتاحك العام هنا
 
 // ===== تسجيل الدخول =====
 function authWithProvider(provider) {
