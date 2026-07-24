@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
+    <title>Vision+</title>
+</head>
+<body>
+    <header class="header">
+        <a href="index.html" class="logo">VISION+</a>
+        <nav class="nav">
+            <a href="index.html">الرئيسية</a>
+            <a href="yourpage.html">حسابي</a>
+            <a href="admin.html" style="color:#ff6b6b;">الإدارة</a>
+        </nav>
+    </header>
+
+    <section class="main" id="home">
+        <div class="main-content">
+            <h1 id="hero-title">مرحباً بك في VISION+</h1>
+            <h2 id="hero-subtitle">منصة تجمع بين الموهوبين والعملاء</h2>
+            <a href="yourpage.html" class="main-btn">انضم الآن</a>
+        </div>
+        <div class="floating-icons">
+            <i class="fa-sharp fa-solid fa-pen-to-square fly-icon" style="--delay:0s; top:8%; left:3%; font-size: 3.5rem;"></i>
+            <i class="fa-solid fa-code fly-icon" style="--delay:0.8s; top:15%; right:5%; font-size: 4rem;"></i>
+            <i class="fa-solid fa-language fly-icon" style="--delay:1.6s; bottom:20%; left:5%; font-size: 3.8rem;"></i>
+            <i class="fa-solid fa-paintbrush fly-icon" style="--delay:2.4s; top:40%; right:3%; font-size: 4.2rem;"></i>
+            <i class="fa-solid fa-camera fly-icon" style="--delay:3.2s; bottom:12%; right:8%; font-size: 3.6rem;"></i>
+        </div>
+    </section>
+
+    <section class="cards" id="services">
+        <h2 class="title">الخدمات</h2>
+        <div class="content" id="services-content">
+            <!-- سيتم تحميل الكاتيغوريس من Firebase -->
+        </div>
+    </section>
+
+    <section class="viral" id="viral">
+        <h2 class="title">🎯 الموهوبون</h2>
+        <div class="content" id="viral-content">
+            <!-- سيتم تحميل الفريلانسرز -->
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <h3>عن المنصة</h3>
+                <p id="footer-text">جميع الحقوق محفوظة © 2026 Vision+</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="firebase-config.js"></script>
+    <script>
+        // ===== تحميل الكاتيغوريس =====
+        async function loadServices() {
+            const container = document.getElementById('services-content');
+            const categories = await loadFromFirebase('categories');
+            
+            if (!categories) {
+                container.innerHTML = '<p style="color:#5a6f73; text-align:center; width:100%;">لا توجد خدمات حالياً</p>';
+                return;
+            }
+            
+            let html = '';
+            Object.values(categories).forEach(cat => {
+                html += `
+                    <div class="card" onclick="showCategory('${cat.id}')" style="cursor:pointer;">
+                        <div class="icon" style="color:${cat.color || '#b0e0e6'};">
+                            <i class="fas ${cat.icon}"></i>
+                        </div>
+                        <div class="info">
+                            <h2>${cat.name}</h2>
+                            <p>عرض الموهوبين</p>
+                            <a href="#" onclick="event.stopPropagation(); showCategory('${cat.id}')">عرض</a>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ===== عرض الموهوبين حسب الكاتيغوري =====
+        async function showCategory(categoryId) {
+            const users = await loadFromFirebase('users');
+            const container = document.getElementById('viral-content');
+            
+            if (!users) {
+                container.innerHTML = '<p style="color:#5a6f73; text-align:center; width:100%;">لا يوجد موهوبين بعد</p>';
+                return;
+            }
+            
+            const freelancers = Object.values(users).filter(u => 
+                u.status === 'approved' && u.categoryId === categoryId
+            );
+            
+            if (freelancers.length === 0) {
+                container.innerHTML = `
+                    <div style="width:100%; text-align:center; padding:40px; color:#5a6f73;">
+                        <p>لا يوجد موهوبين في هذا المجال</p>
+                        <p style="font-weight:400;">كن الأول! <a href="yourpage.html" style="color:#b0e0e6;">سجل الآن</a></p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            freelancers.forEach(f => {
+                html += `
+                    <div class="viral-card" onclick="viewProfile('${f.uid}')">
+                        <div class="viral-img">
+                            <img src="${f.profilePic || 'img/default-avatar.jpg'}" alt="${f.username}" />
+                        </div>
+                        <div class="viral-info">
+                            <p class="category">⭐ ${f.username}</p>
+                            <strong class="v-title">
+                                <span>${f.categoryId}</span>
+                                <a href="#" class="viralbtn" onclick="event.stopPropagation(); viewProfile('${f.uid}')">عرض</a>
+                            </strong>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            document.getElementById('viral').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ===== عرض الملف الشخصي =====
+        function viewProfile(uid) {
+            window.location.href = `profile.html?uid=${uid}`;
+        }
+
+        // ===== تحميل النصوص =====
+        async function loadTexts() {
+            const texts = await loadFromFirebase('site_texts');
+            if (texts) {
+                if (texts.hero_title) document.getElementById('hero-title').textContent = texts.hero_title;
+                if (texts.hero_subtitle) document.getElementById('hero-subtitle').textContent = texts.hero_subtitle;
+                if (texts.footer_text) document.getElementById('footer-text').textContent = texts.footer_text;
+            }
+        }
+
+        // ===== تحميل الصفحة =====
+        document.addEventListener('DOMContentLoaded', function() {
+            loadServices();
+            loadTexts();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
+    <title>Vision+ | حسابي</title>
+    <style>
+        .profile-header-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            background: #f4f9fa;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        .profile-header-bar img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #b0e0e6;
+        }
+        .profile-header-bar .info { flex: 1; }
+        .profile-header-bar .info .name { font-weight: 700; color: #1e2b2f; }
+        .profile-header-bar .info .email { font-weight: 400; color: #5a6f73; font-size: 0.85em; }
+        .dashboard-section {
+            background: #f4f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .dashboard-section h3 { color: #1e2b2f; margin-bottom: 15px; }
+        .dashboard-section h3 i { color: #b0e0e6; margin-right: 10px; }
+        .pending-message {
+            text-align: center;
+            padding: 40px 30px;
+            background: #fff3cd;
+            border-radius: 15px;
+            border: 2px solid #ffc107;
+        }
+        .pending-message .icon { font-size: 4em; color: #ffc107; }
+        .pending-message .text {
+            font-size: 1.2em;
+            color: #856404;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        .pending-message .subtext {
+            color: #856404;
+            font-weight: 400;
+            margin-top: 10px;
+        }
+        .badge-approved {
+            background: #4CAF50;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="index.html" class="logo">VISION+ | حسابي</a>
+        <nav class="nav">
+            <a href="index.html">الرئيسية</a>
+            <a href="#viral">الموهوبون</a>
+            <a href="#services">الخدمات</a>
+        </nav>
+    </header>
+
+    <section class="yourpage-section" id="yourpage">
+        <div class="yourpage-container">
+            <!-- مرحلة 1: تسجيل الدخول -->
+            <div id="step-auth" class="step active">
+                <div class="yourpage-card">
+                    <h2><i class="fas fa-user-plus"></i> إنشاء حساب</h2>
+                    <p style="color: #5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
+                    
+                    <div class="auth-buttons">
+                        <button class="auth-btn google-btn" onclick="authWithProvider('google')">
+                            <i class="fa-brands fa-google"></i> تسجيل الدخول بـ Google
+                        </button>
+                        <button class="auth-btn github-btn" onclick="authWithProvider('github')">
+                            <i class="fa-brands fa-github"></i> تسجيل الدخول بـ GitHub
+                        </button>
+                        <button class="auth-btn discord-btn" onclick="authWithProvider('discord')">
+                            <i class="fa-brands fa-discord"></i> تسجيل الدخول بـ Discord
+                        </button>
+                    </div>
+                    
+                    <div id="auth-user-info" style="display:none; margin-top:25px; padding:20px; background:#f4f9fa; border-radius:15px;">
+                        <div class="profile-header-bar">
+                            <img id="auth-profile-pic" src="img/default-avatar.jpg" />
+                            <div class="info">
+                                <div class="name" id="auth-username">اسم المستخدم</div>
+                                <div class="email" id="auth-email">البريد الإلكتروني</div>
+                            </div>
+                        </div>
+                        <button class="next-btn" onclick="goToStep2()">متابعة <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- مرحلة 2: اختيار الكاتيغوري -->
+            <div id="step-profile" class="step" style="display:none;">
+                <div class="yourpage-card">
+                    <h2><i class="fas fa-user-cog"></i> معلومات الملف</h2>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> اسم المستخدم:</label>
+                        <input type="text" id="username" placeholder="اختر اسم مستخدم" required />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-tag"></i> اختر تخصصك:</label>
+                        <div class="services-grid" id="category-grid">
+                            <!-- سيتم تحميل الكاتيغوريس -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-image"></i> الصورة الشخصية:</label>
+                        <div class="upload-box" id="uploadBox">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 2.5em; color: #b0e0e6;"></i>
+                            <p>اضغط لرفع الصورة</p>
+                            <input type="file" id="profilePic" accept="image/*" />
+                        </div>
+                        <div id="previewContainer" style="display:none; margin-top:15px;">
+                            <img id="previewImage" src="#" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid #b0e0e6;" />
+                            <p style="color:#5a6f73; font-weight:400; margin-top:8px;">✅ تم رفع الصورة</p>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-palette"></i> البانر (اختياري):</label>
+                        <div class="upload-box" id="bannerUploadBox">
+                            <i class="fas fa-image" style="font-size: 2.5em; color: #b0e0e6;"></i>
+                            <p>اضغط لرفع البانر</p>
+                            <input type="file" id="bannerPic" accept="image/*" />
+                        </div>
+                        <div id="bannerPreviewContainer" style="display:none; margin-top:15px;">
+                            <img id="bannerPreviewImage" src="#" style="width:100%; max-height:200px; object-fit:cover; border-radius:15px; border:3px solid #b0e0e6;" />
+                        </div>
+                    </div>
+                    
+                    <button class="next-btn" onclick="goToStep3()">التالي <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- مرحلة 3: الدفع -->
+            <div id="step-payment" class="step" style="display:none;">
+                <div class="yourpage-card">
+                    <h2><i class="fas fa-credit-card"></i> تفعيل الحساب</h2>
+                    <p>ادفع <strong>$1</strong> لتفعيل حسابك</p>
+                    
+                    <div class="payment-methods">
+                        <button class="payment-btn" onclick="showPaymentCode('ccp')">
+                            <i class="fas fa-university"></i> CCP
+                        </button>
+                        <button class="payment-btn" onclick="showPaymentCode('redotpay')">
+                            <i class="fas fa-wallet"></i> Redotpay
+                        </button>
+                        <button class="payment-btn" onclick="showPaymentCode('baridimob')">
+                            <i class="fas fa-mobile-alt"></i> Baridimob
+                        </button>
+                    </div>
+                    
+                    <div id="payment-code-container" style="display:none; margin-top:20px; padding:20px; background:#f4f9fa; border-radius:15px;">
+                        <p style="font-weight:600; color:#1e2b2f;">أرسل الدفع إلى:</p>
+                        <p id="payment-code" style="font-size:1.4em; color:#b0e0e6; font-weight:700; padding:12px; background:#fff; border-radius:10px; border:2px dashed #b0e0e6; text-align:center;"></p>
+                        <button class="next-btn" onclick="confirmPayment()" style="margin-top:15px;">
+                            <i class="fas fa-check"></i> تم الدفع
+                        </button>
+                    </div>
+                    
+                    <div id="payment-status" style="margin-top:20px;"></div>
+                </div>
+            </div>
+
+            <!-- مرحلة 4: رسالة الانتظار -->
+            <div id="step-waiting" class="step" style="display:none;">
+                <div class="yourpage-card pending-message">
+                    <div class="icon">⏳</div>
+                    <div class="text" id="waiting-text">⏳ يرجى الانتظار من 1 إلى 40 ساعة لمراجعة طلبك من قبل الإدارة</div>
+                    <div class="subtext">سيتم إعلامك عبر البريد الإلكتروني عند قبول طلبك</div>
+                    <div class="loader" style="margin-top:20px;"></div>
+                    <button class="main-btn" onclick="window.location.href='index.html'" style="margin-top:20px; display:inline-block;">
+                        العودة للرئيسية
+                    </button>
+                </div>
+            </div>
+
+            <!-- مرحلة 5: لوحة التحكم -->
+            <div id="step-dashboard" class="step" style="display:none;">
+                <div class="yourpage-card">
+                    <div class="profile-header-bar" id="dashboard-header">
+                        <img id="dash-profile-pic" src="img/default-avatar.jpg" />
+                        <div class="info">
+                            <div class="name" id="dash-username">اسم المستخدم</div>
+                            <div class="email" id="dash-email">البريد الإلكتروني</div>
+                        </div>
+                        <span class="badge-approved">✅ مفعل</span>
+                    </div>
+
+                    <div class="dashboard-section">
+                        <h3><i class="fas fa-edit"></i> تعديل البورتفوليو</h3>
+                        <div class="form-group">
+                            <label>السيرة الذاتية:</label>
+                            <textarea id="edit-bio" rows="4" placeholder="اكتب عن نفسك..." style="width:100%; padding:12px; border-radius:15px; border:2px solid #dce8ea; font-weight:400; resize:vertical;"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>رابط البورتفوليو:</label>
+                            <input type="text" id="edit-portfolio" placeholder="https://your-portfolio.com" style="width:100%; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
+                        </div>
+                        <div class="form-group">
+                            <label>رقم الهاتف:</label>
+                            <input type="text" id="edit-phone" placeholder="+213 555 123 456" style="width:100%; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
+                        </div>
+                        <button class="next-btn" onclick="updatePortfolio()" style="margin-top:10px;">
+                            <i class="fas fa-save"></i> حفظ التغييرات
+                        </button>
+                    </div>
+
+                    <div class="dashboard-section">
+                        <h3><i class="fas fa-images"></i> تحديث الصور</h3>
+                        <div class="upload-box" id="updateProfileBox" style="margin-bottom:15px;">
+                            <i class="fas fa-user" style="font-size:2em; color:#b0e0e6;"></i>
+                            <p>تغيير الصورة الشخصية</p>
+                            <input type="file" id="updateProfilePic" accept="image/*" />
+                        </div>
+                        <div class="upload-box" id="updateBannerBox">
+                            <i class="fas fa-image" style="font-size:2em; color:#b0e0e6;"></i>
+                            <p>تغيير البانر</p>
+                            <input type="file" id="updateBannerPic" accept="image/*" />
+                        </div>
+                    </div>
+                    
+                    <button class="main-btn" onclick="window.location.href='index.html'" style="margin:20px auto 0; display:block;">
+                        العودة للرئيسية
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <h3>عن المنصة</h3>
+                <p>Vision+ منصة تجمع بين الموهوبين والعملاء</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>جميع الحقوق محفوظة © 2026 Vision+</p>
+        </div>
+    </footer>
+
+    <script src="firebase-config.js"></script>
+    <script src="yourpage-script.js"></script>
+</body>
+</html>

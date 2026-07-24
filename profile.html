@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
+    <title>Vision+ | الملف الشخصي</title>
+    <style>
+        .profile-section {
+            min-height: 100vh;
+            background: linear-gradient(145deg, #0b1a1f, #1f3a42);
+            padding: 120px 40px 60px;
+        }
+        .profile-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .profile-banner {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            background: #1e2b2f;
+        }
+        .profile-header {
+            padding: 30px;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            flex-wrap: wrap;
+            margin-top: -60px;
+            position: relative;
+        }
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid #fff;
+            object-fit: cover;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .profile-name {
+            font-size: 2em;
+            color: #1e2b2f;
+        }
+        .profile-category {
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 30px;
+            background: #b0e0e6;
+            color: #1e2b2f;
+            font-weight: 600;
+            font-size: 0.8em;
+        }
+        .profile-body {
+            padding: 30px;
+        }
+        .profile-bio {
+            font-weight: 400;
+            color: #5a6f73;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        .profile-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .profile-info-item {
+            padding: 15px;
+            background: #f4f9fa;
+            border-radius: 12px;
+        }
+        .profile-info-item .label {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+        }
+        .profile-info-item .value {
+            font-weight: 600;
+            color: #1e2b2f;
+            margin-top: 4px;
+        }
+        .profile-contact-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            border-radius: 50px;
+            background: #b0e0e6;
+            color: #1e2b2f;
+            text-decoration: none;
+            font-weight: 700;
+            transition: 0.3s;
+            margin-top: 20px;
+            border: none;
+            cursor: pointer;
+        }
+        .profile-contact-btn:hover {
+            background: #1e2b2f;
+            color: #b0e0e6;
+            transform: scale(1.05);
+        }
+        .back-btn {
+            display: inline-block;
+            margin: 10px 30px;
+            color: #5a6f73;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-btn:hover { color: #b0e0e6; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="index.html" class="logo">VISION+ | الملف الشخصي</a>
+        <nav class="nav">
+            <a href="index.html">الرئيسية</a>
+            <a href="#viral">الموهوبون</a>
+        </nav>
+    </header>
+
+    <section class="profile-section" id="profile">
+        <div class="profile-container" id="profile-content">
+            <div style="text-align:center; padding:60px;">
+                <div class="loader"></div>
+                <p style="color:#5a6f73; font-weight:400;">جاري تحميل الملف...</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <h3>عن المنصة</h3>
+                <p>Vision+ منصة تجمع بين الموهوبين والعملاء</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>جميع الحقوق محفوظة © 2026 Vision+</p>
+        </div>
+    </footer>
+
+    <script src="firebase-config.js"></script>
+    <script>
+        async function loadProfile() {
+            const params = new URLSearchParams(window.location.search);
+            const uid = params.get('uid');
+            
+            if (!uid) {
+                document.getElementById('profile-content').innerHTML = `
+                    <div style="text-align:center; padding:60px;">
+                        <i class="fas fa-exclamation-circle" style="font-size:3em; color:#ff6b6b;"></i>
+                        <p style="color:#5a6f73; font-weight:400; margin-top:15px;">لم يتم تحديد المستخدم</p>
+                        <a href="index.html" class="main-btn" style="margin-top:20px;">العودة للرئيسية</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                const user = await loadFromFirebase(`users/${uid}`);
+                
+                if (!user || user.status !== 'approved') {
+                    document.getElementById('profile-content').innerHTML = `
+                        <div style="text-align:center; padding:60px;">
+                            <i class="fas fa-user-slash" style="font-size:3em; color:#ff6b6b;"></i>
+                            <p style="color:#5a6f73; font-weight:400; margin-top:15px;">المستخدم غير موجود أو غير مفعل</p>
+                            <a href="index.html" class="main-btn" style="margin-top:20px;">العودة للرئيسية</a>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                document.getElementById('profile-content').innerHTML = `
+                    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> العودة</a>
+                    <img src="${user.bannerPic || 'img/default-banner.jpg'}" class="profile-banner" />
+                    <div class="profile-header">
+                        <img src="${user.profilePic || 'img/default-avatar.jpg'}" class="profile-avatar" />
+                        <div>
+                            <h1 class="profile-name">${user.username || 'غير معروف'}</h1>
+                            <span class="profile-category">${user.categoryId || 'لا يوجد تخصص'}</span>
+                            <div style="margin-top:10px;">
+                                ${user.views ? `<span style="color:#5a6f73; font-weight:400;">👁️ ${user.views} مشاهدة</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-body">
+                        ${user.bio ? `<div class="profile-bio">${user.bio}</div>` : ''}
+                        <div class="profile-info-grid">
+                            <div class="profile-info-item">
+                                <div class="label">📧 البريد الإلكتروني</div>
+                                <div class="value">${user.email || 'غير متوفر'}</div>
+                            </div>
+                            <div class="profile-info-item">
+                                <div class="label">📱 رقم الهاتف</div>
+                                <div class="value">${user.phone || 'غير متوفر'}</div>
+                            </div>
+                            <div class="profile-info-item">
+                                <div class="label">📁 التخصص</div>
+                                <div class="value">${user.categoryId || 'N/A'}</div>
+                            </div>
+                            <div class="profile-info-item">
+                                <div class="label">🔗 البورتفوليو</div>
+                                <div class="value">
+                                    ${user.portfolioLink ? 
+                                        `<a href="${user.portfolioLink}" target="_blank" style="color:#b0e0e6; text-decoration:none;">زيارة البورتفوليو</a>` : 
+                                        'غير متوفر'
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <button class="profile-contact-btn" onclick="contactFreelancer('${user.email}')">
+                            <i class="fas fa-envelope"></i> التواصل
+                        </button>
+                    </div>
+                `;
+                
+                // زيادة المشاهدات
+                await saveToFirebase(`users/${uid}/views`, (user.views || 0) + 1);
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                document.getElementById('profile-content').innerHTML = `
+                    <div style="text-align:center; padding:60px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:3em; color:#ff6b6b;"></i>
+                        <p style="color:#5a6f73; font-weight:400; margin-top:15px;">خطأ في تحميل الملف</p>
+                        <a href="index.html" class="main-btn" style="margin-top:20px;">العودة للرئيسية</a>
+                    </div>
+                `;
+            }
+        }
+
+        function contactFreelancer(email) {
+            window.location.href = `mailto:${email}?subject=مرحباً من Vision+!`;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+</html>
