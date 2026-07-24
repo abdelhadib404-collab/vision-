@@ -1,5 +1,5 @@
 // 🔥 رابط Firebase المباشر
-const FIREBASE_URL = "https://visionplus-2026-default-rtdb.firebaseio.com/";
+const FIREBASE_URL = "https://mydressshop-fd016-default-rtdb.firebaseio.com/";
 
 // ===== دوال Firebase =====
 async function loadFromFirebase(path) {
