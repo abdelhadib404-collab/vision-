@@ -8,6 +8,9 @@ let currentUser = {
 let userData = {};
 let selectedCategoryId = null;
 
+// ✅ تهيئة EmailJS
+emailjs.init('YOUR_PUBLIC_KEY'); // 🔴 ضع مفتاحك العام هنا
+
 // ===== تسجيل الدخول =====
 function authWithProvider(provider) {
     const email = prompt('أدخل بريدك الإلكتروني:', 'user@gmail.com');
@@ -26,8 +29,6 @@ function authWithProvider(provider) {
         document.querySelector('.auth-buttons').style.display = 'none';
         
         showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
-        
-        // التحقق من حالة المستخدم
         checkUserStatus();
     } else {
         showNotification('❌ يرجى إدخال بريد صحيح', 'error');
@@ -50,7 +51,6 @@ async function checkUserStatus() {
                 return;
             }
         }
-        // مستخدم جديد - اكمل التسجيل
     } catch (error) {
         console.error('Error checking user:', error);
     }
@@ -144,12 +144,44 @@ function showPaymentCode(method) {
     userData.paymentMethod = method;
 }
 
+// ===== ✅ دالة إرسال الإيميل للمسؤول (هنا مكان الكود) =====
+async function sendEmailToAdmin(userData) {
+    try {
+        const templateParams = {
+            username: userData.username || 'غير معروف',
+            email: userData.email || 'لا يوجد بريد',
+            category: userData.categoryId || 'لا يوجد تخصص',
+            payment_method: userData.paymentMethod || 'غير محدد',
+            payment_note: userData.paymentNote || 'لا توجد ملاحظات',
+            status: 'قيد الانتظار',
+            created_at: new Date().toLocaleString('ar-DZ'),
+            profile_pic: userData.profilePic || '',
+            banner_pic: userData.bannerPic || '',
+            bio: userData.bio || '',
+            portfolio_link: userData.portfolioLink || '',
+            approve_link: `https://visionplus.com/admin.html`,
+            reject_link: `https://visionplus.com/admin.html`,
+            profile_link: `https://visionplus.com/profile.html?uid=${userData.uid}`
+        };
+        
+        const response = await emailjs.send(
+            'service_visionplus',     // 🔴 ضع SERVICE_ID الخاص بك
+            'template_admin_notify',  // 🔴 ضع TEMPLATE_ID الخاص بك
+            templateParams
+        );
+        console.log('✅ Email sent to admin:', response);
+        return true;
+    } catch (error) {
+        console.error('❌ Email error:', error);
+        return false;
+    }
+}
+
 // ===== تأكيد الدفع =====
 async function confirmPayment() {
     const statusDiv = document.getElementById('payment-status');
     statusDiv.innerHTML = `<p style="color: #b0e0e6;">⏳ جاري المعالجة...</p>`;
     
-    // تحويل الصورة إلى Base64
     const reader = new FileReader();
     reader.onload = async function(e) {
         const userDataToSave = {
@@ -168,25 +200,11 @@ async function confirmPayment() {
             views: 0
         };
         
-        // رفع البانر إذا وجد
-        if (userData.bannerPic) {
-            const bannerReader = new FileReader();
-            bannerReader.onload = function(e2) {
-                userDataToSave.bannerPic = e2.target.result;
-                saveUserData(userDataToSave);
-            };
-            bannerReader.readAsDataURL(userData.bannerPic);
-        } else {
-            saveUserData(userDataToSave);
-        }
-    };
-    reader.readAsDataURL(userData.profilePic);
-}
-
-async function saveUserData(data) {
-    try {
+        // ✅ إرسال إيميل للمسؤول
+        await sendEmailToAdmin(userDataToSave);
+        
         // حفظ في Firebase
-        await saveToFirebase(`users/${currentUser.uid}`, data);
+        await saveToFirebase(`users/${currentUser.uid}`, userDataToSave);
         
         document.getElementById('payment-status').innerHTML = `
             <p style="color: #4CAF50;">✅ تم تسجيل طلبك بنجاح!</p>
@@ -197,13 +215,8 @@ async function saveUserData(data) {
             document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
             document.getElementById('step-waiting').style.display = 'block';
         }, 2000);
-        
-    } catch (error) {
-        console.error('Error saving user:', error);
-        document.getElementById('payment-status').innerHTML = `
-            <p style="color: #ff6b6b;">❌ حدث خطأ، يرجى المحاولة مرة أخرى</p>
-        `;
-    }
+    };
+    reader.readAsDataURL(userData.profilePic);
 }
 
 // ===== تحميل لوحة التحكم =====
