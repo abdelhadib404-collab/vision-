@@ -100,8 +100,8 @@ async function sendApprovalEmail(user) {
         };
         
         await emailjs.send(
-            'service_visionplus',        // 🔴 ضع SERVICE_ID الخاص بك
-            'template_user_approved',    // 🔴 ضع TEMPLATE_ID الخاص بك
+            'service_y29ncb9',        // 🔴 ضع SERVICE_ID الخاص بك
+            'template_w2nxpda',    // 🔴 ضع TEMPLATE_ID الخاص بك
             templateParams
         );
         console.log('✅ Approval email sent to user');
