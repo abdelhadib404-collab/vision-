@@ -1,7 +1,7 @@
 const ADMIN_PASSWORD = "admin123";
 
 // ✅ تهيئة EmailJS
-emailjs.init('YOUR_PUBLIC_KEY'); // 🔴 ضع مفتاحك العام هنا
+emailjs.init('CKWFEy1mLeWLKlkkC'); // 🔴 ضع مفتاحك العام هنا
 
 function loginAdmin() {
     const pass = document.getElementById('admin-password').value;
