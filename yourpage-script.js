@@ -165,8 +165,8 @@ async function sendEmailToAdmin(userData) {
         };
         
         const response = await emailjs.send(
-            'service_visionplus',     // 🔴 ضع SERVICE_ID الخاص بك
-            'template_admin_notify',  // 🔴 ضع TEMPLATE_ID الخاص بك
+            'service_y29ncb9',     // 🔴 ضع SERVICE_ID الخاص بك
+            'template_w2nxpda',  // 🔴 ضع TEMPLATE_ID الخاص بك
             templateParams
         );
         console.log('✅ Email sent to admin:', response);
