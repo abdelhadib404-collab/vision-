@@ -14,6 +14,18 @@
             <a href="index.html">الرئيسية</a>
             <a href="yourpage.html">حسابي</a>
             <a href="admin.html" style="color:#ff6b6b;">الإدارة</a>
+            <div class="header-user" id="header-user" style="display:none;" onclick="toggleDropdown(event)">
+                <img id="header-avatar" src="img/default-avatar.jpg" alt="avatar" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #b0e0e6;" />
+                <span class="username" id="header-username" style="color:#d4e9ed;font-weight:600;font-size:0.9em;display:none;">مستخدم</span>
+                <div class="user-dropdown" id="user-dropdown" style="position:absolute;top:45px;right:0;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);min-width:160px;display:none;overflow:hidden;z-index:1000;">
+                    <a href="yourpage.html" style="display:flex;align-items:center;gap:10px;padding:10px 18px;color:#1e2b2f;text-decoration:none;font-weight:500;font-size:0.9em;border-bottom:1px solid #f0f0f0;">
+                        <i class="fas fa-user-edit"></i> حسابي
+                    </a>
+                    <a href="#" onclick="event.stopPropagation(); logoutUser();" style="display:flex;align-items:center;gap:10px;padding:10px 18px;color:#ff6b6b;text-decoration:none;font-weight:500;font-size:0.9em;">
+                        <i class="fas fa-sign-out-alt"></i> تسجيل خروج
+                    </a>
+                </div>
+            </div>
         </nav>
     </header>
 
@@ -56,7 +68,29 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="common.js"></script>
+    <script src="auth.js"></script>
     <script>
+        // ===== إظهار/إخفاء القائمة =====
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('user-dropdown');
+            dropdown.classList.toggle('show');
+        }
+        document.addEventListener('click', function() {
+            document.getElementById('user-dropdown').classList.remove('show');
+        });
+
+        // ===== تحديث رأس الصفحة =====
+        function updateHeader() {
+            const user = getCurrentUser();
+            if (user) {
+                document.getElementById('header-user').style.display = 'flex';
+                document.getElementById('header-avatar').src = user.photoURL;
+                document.getElementById('header-username').textContent = user.displayName;
+                document.getElementById('header-username').style.display = 'inline';
+            }
+        }
+
         // ===== تحميل التخصصات =====
         async function loadServices() {
             const container = document.getElementById('services-content');
@@ -99,7 +133,6 @@
                     return;
                 }
                 
-                // فلترة + ترتيب حسب المشاهدات (الأعلى أولاً)
                 let freelancers = Object.values(users).filter(u => 
                     u.status === 'approved' && u.categoryId === categoryId
                 );
@@ -171,6 +204,7 @@
 
         // ===== تحميل الصفحة =====
         document.addEventListener('DOMContentLoaded', function() {
+            updateHeader();
             loadServices();
             loadTexts();
         });

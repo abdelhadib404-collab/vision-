@@ -1,9 +1,8 @@
 // =====================================================
-// common.js — دوال مشتركة بين كل صفحات الموقع
-// (إشعارات + تحميل الألوان الديناميكية من لوحة الإدارة)
+// common.js — دوال مشتركة
 // =====================================================
 
-// ===== إشعار منبثق (Toast) =====
+// ===== إشعار منبثق =====
 function showNotification(message, type = 'info') {
     const existing = document.querySelectorAll('.toast-notification');
     existing.forEach(el => el.remove());
@@ -16,8 +15,7 @@ function showNotification(message, type = 'info') {
     setTimeout(() => toast.remove(), 4000);
 }
 
-// ===== تطبيق الألوان المخصّصة من الإدارة على كامل الموقع =====
-// يقرأ site_settings/colors من Firebase ويحقنها كمتغيرات CSS في :root
+// ===== تطبيق الألوان =====
 async function applySiteColors() {
     try {
         if (typeof loadFromFirebase !== 'function') return;
@@ -44,7 +42,7 @@ async function applySiteColors() {
     }
 }
 
-// ===== توليد معرّف آمن من نص (للاستخدام كمفتاح Firebase) =====
+// ===== توليد معرّف =====
 function slugifyKey(text) {
     return String(text).trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g, '_');
 }

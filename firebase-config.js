@@ -1,8 +1,8 @@
 // =====================================================
-// firebase-config.js — تهيئة Firebase لموقع Vision+
+// firebase-config.js — تهيئة Firebase
 // =====================================================
 
-// ⚠️ أدخل بيانات مشروعك من Firebase Console
+// ⚠️ استبدل هذه القيم ببيانات مشروعك من Firebase Console
 const firebaseConfig = {
     apiKey: "AIzaSyDummyKey123456789",
     authDomain: "vision-5d2d8.firebaseapp.com",
@@ -13,7 +13,7 @@ const firebaseConfig = {
     appId: "1:123456789012:web:abcdef123456"
 };
 
-// تهيئة Firebase
+// تهيئة Firebase (مرة واحدة)
 if (!firebase.apps || !firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -21,10 +21,10 @@ if (!firebase.apps || !firebase.apps.length) {
 // قاعدة البيانات
 const db = firebase.database();
 
-// المصادقة
+// المصادقة (Authentication)
 const vpAuth = firebase.auth();
 
-// ===== دوال مشتركة للقراءة والكتابة =====
+// ===== دوال القراءة والكتابة =====
 async function loadFromFirebase(path) {
     try {
         const snapshot = await db.ref(path).once('value');
@@ -53,4 +53,33 @@ async function updateToFirebase(path, value) {
         console.error(`❌ Firebase update error at "${path}":`, error);
         throw error;
     }
+}
+
+async function pushToFirebase(path, value) {
+    try {
+        const ref = db.ref(path).push();
+        await ref.set(value);
+        return ref.key;
+    } catch (error) {
+        console.error(`❌ Firebase push error at "${path}":`, error);
+        throw error;
+    }
+}
+
+// ===== أداة مساعدة =====
+function slugifyKey(text) {
+    return String(text).trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g, '_');
+}
+
+// ===== إشعارات =====
+function showNotification(message, type = 'info') {
+    const existing = document.querySelectorAll('.toast-notification');
+    existing.forEach(el => el.remove());
+
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 4000);
 }

@@ -1,5 +1,5 @@
 // =====================================================
-// yourpage-script.js — لوحة حسابي المتكاملة
+// yourpage-script.js — لوحة حسابي
 // =====================================================
 
 let currentUser = null;
@@ -15,100 +15,65 @@ async function initEmailJS() {
         emailConfig = await loadFromFirebase('email_config');
         if (emailConfig?.public_key) {
             emailjs.init(emailConfig.public_key);
+            console.log('✅ EmailJS initialized');
+        } else {
+            console.warn('⚠️ EmailJS not configured');
         }
     } catch (error) {
         console.error('Error loading email config:', error);
     }
 }
 
-// ===== البحث عن مستخدم بالبريد الإلكتروني =====
-async function findUserByEmail(email) {
-    if (!email) return null;
-    try {
-        const users = await loadFromFirebase('users');
-        if (!users) return null;
-        const found = Object.values(users).find(u => u.email?.toLowerCase() === email.toLowerCase());
-        return found || null;
-    } catch (error) {
-        console.error('Error finding user by email:', error);
-        return null;
-    }
-}
-
-// ===== تسجيل الدخول بالبريد فقط =====
-async function loginWithEmailOnly() {
-    const input = document.getElementById('email-login-input');
-    const hint = document.getElementById('email-login-hint');
-    const email = input.value.trim().toLowerCase();
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-        hint.textContent = '❌ بريد إلكتروني غير صحيح';
-        hint.className = 'field-hint bad';
+// ===== تهيئة الصفحة =====
+async function initPage() {
+    await initEmailJS();
+    
+    // معالجة العودة من Discord
+    const discordResult = await handleDiscordRedirect();
+    if (discordResult) {
+        currentUser = discordResult;
+        showAuthSuccess();
         return;
     }
-    hint.textContent = '';
-    hint.className = 'field-hint';
-
-    // البحث عن مستخدم موجود بهذا البريد
-    const existingUser = await findUserByEmail(email);
-    if (existingUser) {
-        // مستخدم موجود → نأخذ بياناته
-        const result = {
-            uid: existingUser.uid,
-            email: existingUser.email,
-            displayName: existingUser.displayName || email.split('@')[0],
-            photoURL: existingUser.profilePic || 'img/default-avatar.jpg',
-            provider: 'email'
-        };
-        setLoggedInUser(result);
+    
+    // التحقق من جلسة المستخدم
+    const user = getCurrentUser();
+    if (user) {
+        currentUser = user;
+        showAuthSuccess();
         return;
     }
-
-    // مستخدم جديد
-    const namePart = email.split('@')[0];
-    const result = {
-        uid: `email_${slugifyKey(email)}`,
-        email: email,
-        displayName: namePart,
-        photoURL: 'img/default-avatar.jpg',
-        provider: 'email'
-    };
-    setLoggedInUser(result);
+    
+    // عرض شاشة تسجيل الدخول
+    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+    document.getElementById('step-auth').style.display = 'block';
 }
 
-// ===== تعيين المستخدم الحالي =====
-function setLoggedInUser(result) {
-    currentUser = {
-        uid: result.uid,
-        email: result.email,
-        displayName: result.displayName,
-        photoURL: result.photoURL || 'img/default-avatar.jpg',
-        provider: result.provider
-    };
-
-    // تحديث الواجهة
+// ===== عرض نجاح تسجيل الدخول =====
+function showAuthSuccess() {
+    if (!currentUser) return;
+    
     document.getElementById('auth-profile-pic').src = currentUser.photoURL;
     document.getElementById('auth-username').textContent = currentUser.displayName;
     document.getElementById('auth-email').textContent = currentUser.email || 'لا يوجد بريد ظاهر';
     document.getElementById('auth-user-info').style.display = 'block';
     
     // إخفاء خيارات الدخول
-    const emailBox = document.getElementById('email-login-box');
-    const divider = document.getElementById('auth-or-divider');
-    const authButtons = document.getElementById('auth-buttons');
-    if (emailBox) emailBox.style.display = 'none';
-    if (divider) divider.style.display = 'none';
-    if (authButtons) authButtons.style.display = 'none';
-
-    showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
-    checkUserStatus();
+    document.getElementById('email-login-box').style.display = 'none';
+    document.getElementById('auth-or-divider').style.display = 'none';
+    document.getElementById('auth-buttons').style.display = 'none';
+    
+    // التحقق من حالة المستخدم
+    checkUserAndRedirect();
 }
 
 // ===== التحقق من حالة المستخدم =====
-async function checkUserStatus() {
+async function checkUserAndRedirect() {
+    if (!currentUser) return;
+    
     try {
         const user = await loadFromFirebase(`users/${currentUser.uid}`);
+        
         if (user) {
             userData = user;
             if (user.status === 'approved') {
@@ -121,11 +86,41 @@ async function checkUserStatus() {
                 showNotification('ℹ️ تم رفض طلبك السابق، يمكنك التسجيل من جديد', 'info');
             }
         }
+        
         // مستخدم جديد أو مرفوض → نعرض خطوة التسجيل
         goToStep2();
+        
     } catch (error) {
         console.error('Error checking user:', error);
         goToStep2();
+    }
+}
+
+// ===== تسجيل الدخول بالبريد =====
+async function handleEmailLogin() {
+    const input = document.getElementById('email-login-input');
+    const email = input.value.trim();
+    
+    const result = await loginWithEmailOnly(email);
+    if (result) {
+        currentUser = result;
+        showAuthSuccess();
+    }
+}
+
+// ===== تسجيل الدخول بمزود =====
+async function handleProviderLogin(provider) {
+    document.getElementById('auth-buttons').style.display = 'none';
+    document.getElementById('auth-loading').style.display = 'flex';
+    
+    const result = await authWithProvider(provider);
+    
+    document.getElementById('auth-loading').style.display = 'none';
+    document.getElementById('auth-buttons').style.display = 'flex';
+    
+    if (result) {
+        currentUser = result;
+        showAuthSuccess();
     }
 }
 
@@ -163,6 +158,7 @@ async function loadCategories() {
                 selectedCategoryId = this.value;
             });
         });
+        
     } catch (error) {
         console.error('Error loading categories:', error);
     }
@@ -202,7 +198,7 @@ async function checkUsernameAvailability() {
     }
 }
 
-// ===== الانتقال للخطوة 3 (الدفع) =====
+// ===== الانتقال للخطوة 3 =====
 async function goToStep3() {
     const username = document.getElementById('username').value.trim();
     const phone = document.getElementById('real-phone').value.trim();
@@ -234,7 +230,6 @@ async function goToStep3() {
         return;
     }
     
-    // حفظ البيانات المؤقتة
     window._tempUserData = {
         username: username,
         usernameKey: slugifyKey(username),
@@ -318,7 +313,7 @@ async function confirmPayment() {
         return;
     }
 
-    // قراءة الصور كـ Base64
+    // قراءة الصور
     const profilePicData = await readFileAsDataURL(tempData.profilePic);
     const bannerPicData = tempData.bannerPic ? await readFileAsDataURL(tempData.bannerPic) : '';
 
@@ -363,7 +358,7 @@ async function confirmPayment() {
     }, 2000);
 }
 
-// ===== مساعد: قراءة ملف كـ Base64 =====
+// ===== قراءة ملف كـ Base64 =====
 function readFileAsDataURL(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -373,13 +368,20 @@ function readFileAsDataURL(file) {
     });
 }
 
-// ===== إرسال إيميل للمسؤول =====
+// ===== إرسال إيميل للمسؤول (مصلح) =====
 async function sendEmailToAdmin(data) {
     try {
-        if (!emailConfig?.service_id || !emailConfig?.template_id) {
-            console.warn('Email not configured');
+        // تحميل الإعدادات مرة أخرى للتأكد
+        const config = await loadFromFirebase('email_config');
+        if (!config || !config.service_id || !config.template_id) {
+            console.warn('⚠️ Email not configured, skipping email');
             return false;
         }
+        
+        if (config.public_key) {
+            emailjs.init(config.public_key);
+        }
+        
         const templateParams = {
             username: data.username || 'غير معروف',
             email: data.email || 'لا يوجد بريد',
@@ -393,10 +395,20 @@ async function sendEmailToAdmin(data) {
             profile_link: `${window.location.origin}/profile.html?uid=${data.uid}`,
             admin_link: `${window.location.origin}/admin.html`
         };
-        await emailjs.send(emailConfig.service_id, emailConfig.template_id, templateParams);
+        
+        console.log('📧 Sending email with params:', templateParams);
+        
+        const response = await emailjs.send(
+            config.service_id,
+            config.template_id,
+            templateParams
+        );
+        
+        console.log('✅ Email sent successfully:', response);
         return true;
+        
     } catch (error) {
-        console.error('Email error:', error);
+        console.error('❌ Email error:', error);
         return false;
     }
 }
@@ -418,7 +430,7 @@ function showDashboard(user) {
     loadUserStats();
 }
 
-// ===== تحميل إحصائيات المستخدم =====
+// ===== تحميل الإحصائيات =====
 async function loadUserStats() {
     try {
         const user = await loadFromFirebase(`users/${currentUser.uid}`);
@@ -431,32 +443,37 @@ async function loadUserStats() {
     }
 }
 
-// ===== تحميل أعمال المستخدم =====
+// ===== تحميل الأعمال =====
 async function loadUserWorks() {
     try {
         const user = await loadFromFirebase(`users/${currentUser.uid}`);
-        if (user?.works) {
-            const container = document.getElementById('works-container');
-            if (!container) return;
-            container.innerHTML = user.works.map((work, index) => `
-                <div class="work-item">
-                    ${work.image ? `<img src="${work.image}" alt="${work.title}" />` : ''}
-                    <div class="work-info">
-                        <h4>${work.title || 'بدون عنوان'}</h4>
-                        <p>${work.description || ''}</p>
-                        <button class="admin-btn delete" onclick="deleteWork(${index})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+        const container = document.getElementById('works-container');
+        if (!container) return;
+        
+        if (!user?.works || user.works.length === 0) {
+            container.innerHTML = '<p style="color:#5a6f73; font-weight:400;">لا توجد أعمال مضافة بعد</p>';
+            return;
         }
+        
+        container.innerHTML = user.works.map((work, index) => `
+            <div class="work-item">
+                ${work.image ? `<img src="${work.image}" alt="${work.title}" />` : ''}
+                <div class="work-info">
+                    <h4>${work.title || 'بدون عنوان'}</h4>
+                    <p>${work.description || ''}</p>
+                </div>
+                <button class="admin-btn delete" onclick="deleteWork(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+        
     } catch (error) {
         console.error('Error loading works:', error);
     }
 }
 
-// ===== إضافة عمل جديد =====
+// ===== إضافة عمل =====
 async function addWork() {
     const title = document.getElementById('work-title').value.trim();
     const description = document.getElementById('work-desc').value.trim();
@@ -472,7 +489,12 @@ async function addWork() {
         imageData = await readFileAsDataURL(fileInput.files[0]);
     }
     
-    const newWork = { title, description, image: imageData, createdAt: new Date().toISOString() };
+    const newWork = { 
+        title, 
+        description, 
+        image: imageData, 
+        createdAt: new Date().toISOString() 
+    };
     
     try {
         const user = await loadFromFirebase(`users/${currentUser.uid}`);
@@ -486,6 +508,7 @@ async function addWork() {
         
         showNotification('✅ تم إضافة العمل بنجاح!', 'success');
         loadUserWorks();
+        
     } catch (error) {
         showNotification('❌ حدث خطأ في إضافة العمل', 'error');
     }
@@ -506,7 +529,7 @@ async function deleteWork(index) {
     }
 }
 
-// ===== تحديث البورتفوليو =====
+// ===== تحديث الملف الشخصي =====
 async function updatePortfolio() {
     const bio = document.getElementById('edit-bio').value.trim();
     const portfolioLink = document.getElementById('edit-portfolio').value.trim();
@@ -524,7 +547,7 @@ async function updatePortfolio() {
     }
 }
 
-// ===== عرض شاشة الانتظار =====
+// ===== شاشة الانتظار =====
 function showWaitingScreen() {
     document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
     document.getElementById('step-waiting').style.display = 'block';
@@ -568,24 +591,23 @@ async function updateBannerPic(file) {
     }
 }
 
+// ===== تسجيل الخروج =====
+function handleLogout() {
+    if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+        logoutUser();
+    }
+}
+
 // ===== تهيئة الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
-    initEmailJS();
+    initPage();
     loadWaitingText();
-
-    // معالجة العودة من Discord
-    handleDiscordRedirect().then(result => {
-        if (result) {
-            document.getElementById('auth-buttons').style.display = 'none';
-            setLoggedInUser(result);
-        }
-    });
 
     // أحداث الإدخال
     const emailLoginInput = document.getElementById('email-login-input');
     if (emailLoginInput) {
         emailLoginInput.addEventListener('keypress', e => {
-            if (e.key === 'Enter') loginWithEmailOnly();
+            if (e.key === 'Enter') handleEmailLogin();
         });
     }
 
@@ -660,11 +682,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // تصدير الدوال للاستخدام في HTML
-window.authWithProvider = authWithProvider;
-window.loginWithEmailOnly = loginWithEmailOnly;
+window.handleEmailLogin = handleEmailLogin;
+window.handleProviderLogin = handleProviderLogin;
 window.goToStep3 = goToStep3;
 window.confirmPayment = confirmPayment;
 window.updatePortfolio = updatePortfolio;
 window.addWork = addWork;
 window.deleteWork = deleteWork;
 window.goToStep2 = goToStep2;
+window.handleLogout = handleLogout;

@@ -2,11 +2,22 @@
 // admin-script.js — لوحة تحكم Vision+
 // =====================================================
 
-// 🔴 يمكنك تغيير كلمة مرور الإدارة من هنا، أو أفضل: حفظها في Firebase تحت admin_settings/password
 const DEFAULT_ADMIN_PASSWORD = 'admin123';
-
 let allUsers = {};
 let allCategories = {};
+let emailConfig = null;
+
+// ===== تحميل إعدادات البريد =====
+async function loadEmailConfig() {
+    try {
+        emailConfig = await loadFromFirebase('email_config');
+        if (emailConfig?.public_key) {
+            emailjs.init(emailConfig.public_key);
+        }
+    } catch (error) {
+        console.error('Error loading email config:', error);
+    }
+}
 
 // ===== تسجيل دخول الإدارة =====
 async function loginAdmin() {
@@ -26,6 +37,7 @@ async function loginAdmin() {
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-dashboard').style.display = 'block';
         loadAdminData();
+        loadEmailConfig();
     } else {
         errorEl.textContent = '❌ كلمة المرور غير صحيحة';
     }
@@ -42,7 +54,7 @@ function switchTab(tab) {
     if (tab === 'categories') loadCategoriesAdmin();
     if (tab === 'texts') loadTexts();
     if (tab === 'payments') loadPaymentMethods();
-    if (tab === 'email') loadEmailConfig();
+    if (tab === 'email') loadEmailConfigAdmin();
     if (tab === 'discord') loadDiscordConfig();
     if (tab === 'colors') loadColors();
 }
@@ -137,7 +149,6 @@ async function rejectUser(uid) {
     try {
         const user = allUsers[uid];
         await saveToFirebase(`users/${uid}/status`, 'rejected');
-        // تحرير اسم المستخدم ليصبح متاحاً من جديد
         if (user && user.usernameKey) {
             await db.ref(`usernames/${user.usernameKey}`).remove();
         }
@@ -267,7 +278,7 @@ async function loadPaymentMethods() {
         const container = document.getElementById('payment-methods-list');
 
         if (!methods) {
-            container.innerHTML = '<p style="color:#5a6f73;">لا توجد طرق دفع مضافة بعد (سيتم استخدام القيم الافتراضية)</p>';
+            container.innerHTML = '<p style="color:#5a6f73;">لا توجد طرق دفع مضافة بعد</p>';
             return;
         }
 
@@ -326,8 +337,8 @@ async function deletePaymentMethod(key) {
     }
 }
 
-// ===== إعدادات EmailJS =====
-async function loadEmailConfig() {
+// ===== إعدادات EmailJS (مصلحة) =====
+async function loadEmailConfigAdmin() {
     try {
         const cfg = await loadFromFirebase('email_config');
         if (cfg) {
@@ -348,6 +359,9 @@ async function saveEmailConfig() {
     };
     try {
         await saveToFirebase('email_config', cfg);
+        if (cfg.public_key) {
+            emailjs.init(cfg.public_key);
+        }
         showNotification('✅ تم حفظ إعدادات البريد', 'success');
     } catch (error) {
         showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
@@ -430,7 +444,7 @@ async function resetColors() {
     }
 }
 
-// ===== أداة مساعدة لمنع XSS البسيط عند عرض بيانات المستخدمين =====
+// ===== أداة مساعدة =====
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     return String(str)
@@ -441,12 +455,13 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// ===== عند تحميل الصفحة: تذكّر جلسة الإدارة =====
+// ===== عند تحميل الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
     if (sessionStorage.getItem('vp_admin_logged_in') === 'true') {
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-dashboard').style.display = 'block';
         loadAdminData();
+        loadEmailConfig();
     }
 
     const pwInput = document.getElementById('admin-password');
@@ -456,48 +471,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-// أضف هذه الدوال في admin-script.js إن لم تكن موجودة
-
-// ===== حذف مستخدم =====
-async function deleteUser(uid) {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
-    try {
-        const user = allUsers[uid];
-        if (user && user.usernameKey) {
-            await db.ref(`usernames/${user.usernameKey}`).remove();
-        }
-        await db.ref(`users/${uid}`).remove();
-        showNotification('✅ تم حذف المستخدم', 'success');
-        loadAdminData();
-    } catch (error) {
-        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
-    }
-}
-
-// ===== عرض المستخدم =====
-function viewUser(uid) {
-    window.open(`profile.html?uid=${uid}`, '_blank');
-}
-
-// ===== إضافة طريقة دفع =====
-async function addPaymentMethod() {
-    const key = slugifyKey(document.getElementById('new-pm-key').value.trim());
-    const label = document.getElementById('new-pm-label').value.trim();
-    const value = document.getElementById('new-pm-value').value.trim();
-
-    if (!key || !label || !value) {
-        showNotification('❌ يرجى ملء جميع الحقول', 'error');
-        return;
-    }
-
-    try {
-        await saveToFirebase(`payment_methods/${key}`, { label, value });
-        document.getElementById('new-pm-key').value = '';
-        document.getElementById('new-pm-label').value = '';
-        document.getElementById('new-pm-value').value = '';
-        showNotification('✅ تمت إضافة طريقة الدفع', 'success');
-        loadPaymentMethods();
-    } catch (error) {
-        showNotification('❌ حدث خطأ أثناء الإضافة', 'error');
-    }
-}

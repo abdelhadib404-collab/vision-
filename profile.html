@@ -111,6 +111,37 @@
             font-weight: 600;
         }
         .back-btn:hover { color: #b0e0e6; }
+        .works-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .work-card {
+            background: #f4f9fa;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e8eeef;
+        }
+        .work-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .work-card .work-info {
+            padding: 12px;
+        }
+        .work-card .work-info h4 {
+            font-weight: 700;
+            color: #1e2b2f;
+            margin-bottom: 4px;
+        }
+        .work-card .work-info p {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -121,8 +152,6 @@
             <a href="#viral">الموهوبون</a>
         </nav>
     </header>
-
-
 
     <section class="profile-section" id="profile">
         <div class="profile-container" id="profile-content">
@@ -179,6 +208,25 @@
                     return;
                 }
                 
+                // عرض الأعمال
+                let worksHtml = '';
+                if (user.works && user.works.length > 0) {
+                    worksHtml = `
+                        <h3 style="color:#1e2b2f; margin-top:30px; margin-bottom:15px;">📂 أعمالي</h3>
+                        <div class="works-grid">
+                            ${user.works.map(work => `
+                                <div class="work-card">
+                                    ${work.image ? `<img src="${work.image}" alt="${work.title}" />` : ''}
+                                    <div class="work-info">
+                                        <h4>${work.title || 'بدون عنوان'}</h4>
+                                        <p>${work.description || ''}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                
                 document.getElementById('profile-content').innerHTML = `
                     <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> العودة</a>
                     <img src="${user.bannerPic || 'img/default-banner.jpg'}" class="profile-banner" />
@@ -217,6 +265,7 @@
                                 </div>
                             </div>
                         </div>
+                        ${worksHtml}
                         <button class="profile-contact-btn" onclick="contactFreelancer('${user.email}')">
                             <i class="fas fa-envelope"></i> التواصل
                         </button>
@@ -243,40 +292,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', loadProfile);
-
-        // تحميل الأعمال وعرضها
-async function loadUserWorks(uid) {
-    try {
-        const user = await loadFromFirebase(`users/${uid}`);
-        if (user?.works && user.works.length > 0) {
-            const container = document.getElementById('works-display');
-            container.innerHTML = user.works.map(work => `
-                <div style="background:#f4f9fa; border-radius:12px; overflow:hidden; border:1px solid #e8eeef;">
-                    ${work.image ? `<img src="${work.image}" style="width:100%; height:150px; object-fit:cover;" />` : ''}
-                    <div style="padding:12px;">
-                        <h4 style="font-weight:700; color:#1e2b2f;">${work.title || 'بدون عنوان'}</h4>
-                        <p style="font-weight:400; color:#5a6f73; font-size:0.85em; margin:0;">${work.description || ''}</p>
-                    </div>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('Error loading works:', error);
-    }
-}
-
-// استدعها داخل loadProfile بعد تحميل بيانات المستخدم
-loadUserWorks(uid);
-
     </script>
-    <!-- أضف هذا داخل .profile-body في profile.html بعد profile-info-grid -->
-
-<!-- قسم الأعمال -->
-<div style="margin-top: 30px;">
-    <h3 style="color:#1e2b2f; margin-bottom:15px;">📂 أعمالي</h3>
-    <div id="works-display" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px;">
-        <!-- ستُملأ بواسطة JavaScript -->
-    </div>
-</div>
 </body>
 </html>

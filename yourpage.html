@@ -11,7 +11,66 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
     <title>Vision+ | حسابي</title>
     <style>
-        /* إضافات خاصة بحسابي */
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+        .header-user img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #b0e0e6;
+        }
+        .header-user .username {
+            color: #d4e9ed;
+            font-weight: 600;
+            font-size: 0.9em;
+            display: none;
+        }
+        @media (min-width: 768px) {
+            .header-user .username { display: inline; }
+        }
+        .user-dropdown {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            min-width: 160px;
+            display: none;
+            overflow: hidden;
+            z-index: 1000;
+        }
+        .user-dropdown.show { display: block; }
+        .user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 18px;
+            color: #1e2b2f;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .user-dropdown a:hover {
+            background: #f4f9fa;
+        }
+        .user-dropdown a:last-child {
+            border-bottom: none;
+            color: #ff6b6b;
+        }
+        .user-dropdown a i {
+            width: 20px;
+            text-align: center;
+        }
+
         .dashboard-section {
             background: #f4f9fa;
             border-radius: 15px;
@@ -384,15 +443,41 @@
             font-weight: 400;
             margin: 14px 0;
         }
+        .admin-btn.delete {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .admin-btn.delete:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
     <header class="header">
-        <a href="index.html" class="logo">VISION+ | حسابي</a>
+        <a href="index.html" class="logo">VISION+</a>
         <nav class="nav">
             <a href="index.html">الرئيسية</a>
-            <a href="#viral">الموهوبون</a>
-            <a href="#services">الخدمات</a>
+            <a href="yourpage.html">حسابي</a>
+            <a href="admin.html" style="color:#ff6b6b;">الإدارة</a>
+            <div class="header-user" id="header-user" style="display:none;" onclick="toggleDropdown(event)">
+                <img id="header-avatar" src="img/default-avatar.jpg" alt="avatar" />
+                <span class="username" id="header-username">مستخدم</span>
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="#" onclick="event.stopPropagation(); document.getElementById('step-dashboard').scrollIntoView({behavior:'smooth'});">
+                        <i class="fas fa-user-edit"></i> تعديل الملف
+                    </a>
+                    <a href="#" onclick="event.stopPropagation(); handleLogout();">
+                        <i class="fas fa-sign-out-alt"></i> تسجيل خروج
+                    </a>
+                </div>
+            </div>
         </nav>
     </header>
 
@@ -408,7 +493,7 @@
                         <label><i class="fas fa-envelope"></i> أو ادخل مباشرة ببريدك الإلكتروني:</label>
                         <div style="display:flex; gap:10px;">
                             <input type="email" id="email-login-input" placeholder="example@email.com" style="flex:1; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
-                            <button class="next-btn" style="width:auto; padding:12px 22px; margin:0;" onclick="loginWithEmailOnly()">
+                            <button class="next-btn" style="width:auto; padding:12px 22px; margin:0;" onclick="handleEmailLogin()">
                                 <i class="fas fa-arrow-left"></i> دخول
                             </button>
                         </div>
@@ -418,13 +503,13 @@
                     <div id="auth-or-divider">— أو —</div>
 
                     <div class="auth-buttons" id="auth-buttons">
-                        <button class="auth-btn google-btn" onclick="authWithProvider('google')">
+                        <button class="auth-btn google-btn" onclick="handleProviderLogin('google')">
                             <i class="fa-brands fa-google"></i> تسجيل الدخول بـ Google
                         </button>
-                        <button class="auth-btn github-btn" onclick="authWithProvider('github')">
+                        <button class="auth-btn github-btn" onclick="handleProviderLogin('github')">
                             <i class="fa-brands fa-github"></i> تسجيل الدخول بـ GitHub
                         </button>
-                        <button class="auth-btn discord-btn" onclick="authWithProvider('discord')">
+                        <button class="auth-btn discord-btn" onclick="handleProviderLogin('discord')">
                             <i class="fa-brands fa-discord"></i> تسجيل الدخول بـ Discord
                         </button>
                     </div>
@@ -567,7 +652,7 @@
                     </div>
 
                     <div class="dashboard-section">
-                        <h3><i class="fas fa-briefcase"></i> أعمالي</h3>
+                        <h3><i class="fas fa-briefcase"></i> أعمالي (البورتفوليو)</h3>
                         <div id="works-container"></div>
                         <div class="add-work-form">
                             <input type="text" id="work-title" placeholder="عنوان العمل" />
@@ -636,5 +721,28 @@
     <script src="common.js"></script>
     <script src="auth.js"></script>
     <script src="yourpage-script.js"></script>
+    <script>
+        // ===== إظهار/إخفاء القائمة المنسدلة =====
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('user-dropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // إغلاق القائمة عند النقر خارجها
+        document.addEventListener('click', function() {
+            document.getElementById('user-dropdown').classList.remove('show');
+        });
+
+        // تحديث رأس الصفحة عند تغيير المستخدم
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = getCurrentUser();
+            if (user) {
+                document.getElementById('header-user').style.display = 'flex';
+                document.getElementById('header-avatar').src = user.photoURL;
+                document.getElementById('header-username').textContent = user.displayName;
+            }
+        });
+    </script>
 </body>
 </html>
