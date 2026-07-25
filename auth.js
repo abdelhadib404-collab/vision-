@@ -1,11 +1,11 @@
 // =====================================================
-// auth.js — تسجيل دخول حقيقي (معدل)
+// auth.js — تسجيل دخول (مُصلح بالكامل)
 // =====================================================
 
 let currentAuthUser = null;
 let authStateListeners = [];
 
-// ===== الحصول على المستخدم الحالي من الجلسة =====
+// ===== الحصول على المستخدم الحالي =====
 function getCurrentUser() {
     if (currentAuthUser) return currentAuthUser;
     try {
@@ -20,7 +20,7 @@ function getCurrentUser() {
     return null;
 }
 
-// ===== حفظ المستخدم في الجلسة =====
+// ===== حفظ المستخدم =====
 function setCurrentUser(user) {
     currentAuthUser = user;
     if (user) {
@@ -42,21 +42,32 @@ function notifyAuthListeners(user) {
     authStateListeners.forEach(cb => cb(user));
 }
 
-// ===== تسجيل الدخول بـ Google (معدل) =====
+// ===== ✅ تسجيل الدخول بـ Google (مُصلح) =====
 async function signInWithGoogle() {
     try {
+        showNotification('⏳ جاري تسجيل الدخول بـ Google...', 'info');
+        
+        // التأكد من تهيئة Firebase
+        if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+            showNotification('❌ Firebase not initialized', 'error');
+            return null;
+        }
+        
         const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
+        provider.setCustomParameters({ 
+            prompt: 'select_account'
+        });
         
         const result = await vpAuth.signInWithPopup(provider);
-        const user = result.user;
         
-        if (!user) {
+        if (!result || !result.user) {
             showNotification('❌ فشل تسجيل الدخول', 'error');
             return null;
         }
-
-        // التحقق من البريد الإلكتروني
+        
+        const user = result.user;
+        console.log('✅ Google user:', user);
+        
         if (!user.email) {
             showNotification('❌ البريد الإلكتروني غير متوفر', 'error');
             return null;
@@ -68,7 +79,7 @@ async function signInWithGoogle() {
             displayName: user.displayName || user.email.split('@')[0],
             photoURL: user.photoURL || 'img/default-avatar.jpg',
             provider: 'google',
-            emailVerified: user.emailVerified
+            emailVerified: user.emailVerified || false
         };
 
         setCurrentUser(userData);
@@ -76,33 +87,43 @@ async function signInWithGoogle() {
         return userData;
         
     } catch (error) {
-        console.error('Google auth error:', error);
+        console.error('❌ Google auth error:', error);
+        
         if (error.code === 'auth/popup-closed-by-user') {
             showNotification('تم إغلاق نافذة تسجيل الدخول', 'info');
         } else if (error.code === 'auth/unauthorized-domain') {
-            showNotification('❌ النطاق غير مصرح به في Firebase Console', 'error');
+            showNotification('❌ أضف localhost في Firebase Console > Authentication > Settings > Authorized domains', 'error');
+        } else if (error.code === 'auth/api-key-not-valid') {
+            showNotification('❌ مفتاح API غير صحيح. تأكد من firebase-config.js', 'error');
+        } else if (error.code === 'auth/user-cancelled') {
+            showNotification('تم إلغاء تسجيل الدخول', 'info');
+        } else if (error.code === 'auth/network-request-failed') {
+            showNotification('❌ مشكلة في الإنترنت. تحقق من اتصالك', 'error');
         } else {
-            showNotification('❌ فشل تسجيل الدخول بـ Google: ' + error.message, 'error');
+            showNotification('❌ فشل تسجيل الدخول: ' + error.message, 'error');
         }
         return null;
     }
 }
 
-// ===== تسجيل الدخول بـ GitHub (معدل) =====
+// ===== ✅ تسجيل الدخول بـ GitHub =====
 async function signInWithGithub() {
     try {
+        showNotification('⏳ جاري تسجيل الدخول بـ GitHub...', 'info');
+        
         const provider = new firebase.auth.GithubAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         
         const result = await vpAuth.signInWithPopup(provider);
-        const user = result.user;
         
-        if (!user) {
+        if (!result || !result.user) {
             showNotification('❌ فشل تسجيل الدخول', 'error');
             return null;
         }
+        
+        const user = result.user;
+        console.log('✅ GitHub user:', user);
 
-        // GitHub قد لا يوفر البريد دائماً
         const email = user.email || 
             (result.additionalUserInfo?.username ? `${result.additionalUserInfo.username}@github.user` : null);
 
@@ -125,7 +146,7 @@ async function signInWithGithub() {
         return userData;
         
     } catch (error) {
-        console.error('GitHub auth error:', error);
+        console.error('❌ GitHub auth error:', error);
         if (error.code === 'auth/popup-closed-by-user') {
             showNotification('تم إغلاق نافذة تسجيل الدخول', 'info');
         } else {
@@ -135,7 +156,7 @@ async function signInWithGithub() {
     }
 }
 
-// ===== تسجيل الدخول بـ Discord (معدل) =====
+// ===== تسجيل الدخول بـ Discord =====
 let discordOAuthConfig = null;
 
 async function getDiscordOAuthConfig() {
@@ -188,7 +209,6 @@ async function handleDiscordRedirect() {
     sessionStorage.removeItem('vp_pending_discord');
     sessionStorage.removeItem('vp_discord_redirect');
     
-    // تنظيف الـ URL
     window.history.replaceState({}, document.title, redirectUrl || window.location.pathname);
     
     try {
@@ -204,7 +224,7 @@ async function handleDiscordRedirect() {
         const data = await resp.json();
         
         if (!data || !data.id) {
-            showNotification('❌ فشل تسجيل الدخول عبر Discord: ' + (data.error || 'unknown'), 'error');
+            showNotification('❌ فشل تسجيل الدخول عبر Discord', 'error');
             return null;
         }
         
@@ -228,7 +248,7 @@ async function handleDiscordRedirect() {
     }
 }
 
-// ===== تسجيل الدخول بالبريد فقط (معدل) =====
+// ===== ✅ تسجيل الدخول بالبريد فقط =====
 async function loginWithEmailOnly(email) {
     if (!email) {
         showNotification('❌ يرجى إدخال بريد إلكتروني', 'error');
@@ -242,7 +262,6 @@ async function loginWithEmailOnly(email) {
     }
     
     try {
-        // البحث عن مستخدم موجود
         const users = await loadFromFirebase('users');
         let existingUser = null;
         let existingUid = null;
@@ -272,7 +291,6 @@ async function loginWithEmailOnly(email) {
             return userData;
         }
         
-        // مستخدم جديد
         const namePart = email.split('@')[0];
         const uid = `email_${slugifyKey(email)}_${Date.now()}`;
         const userData = {
@@ -327,9 +345,11 @@ async function checkUserStatus(uid) {
     }
 }
 
-// ===== مراقبة حالة المصادقة من Firebase =====
-if (vpAuth) {
+// ===== ✅ مراقبة حالة المصادقة =====
+if (typeof vpAuth !== 'undefined' && vpAuth) {
     vpAuth.onAuthStateChanged(async (firebaseUser) => {
+        console.log('🔥 Auth state changed:', firebaseUser?.uid || 'No user');
+        
         if (firebaseUser) {
             const userData = getCurrentUser();
             if (!userData || userData.uid !== firebaseUser.uid) {
@@ -343,17 +363,11 @@ if (vpAuth) {
                 };
                 setCurrentUser(user);
             }
-        } else {
-            // المستخدم غير مسجل دخول في Firebase
-            const sessionUser = getCurrentUser();
-            if (sessionUser && sessionUser.provider !== 'email') {
-                setCurrentUser(null);
-            }
         }
     });
 }
 
-// تصدير الدوال للاستخدام العام
+// ===== تصدير الدوال =====
 window.getCurrentUser = getCurrentUser;
 window.setCurrentUser = setCurrentUser;
 window.signInWithGoogle = signInWithGoogle;
@@ -365,3 +379,5 @@ window.authWithProvider = authWithProvider;
 window.logoutUser = logoutUser;
 window.checkUserStatus = checkUserStatus;
 window.onAuthStateChange = onAuthStateChange;
+
+console.log('✅ auth.js loaded successfully');

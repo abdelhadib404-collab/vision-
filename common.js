@@ -47,4 +47,15 @@ function slugifyKey(text) {
     return String(text).trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g, '_');
 }
 
+// ===== الحصول على المستخدم الحالي =====
+function getCurrentUser() {
+    try {
+        const stored = sessionStorage.getItem('vp_user');
+        if (stored) return JSON.parse(stored);
+    } catch (error) {
+        console.error('Error getting current user:', error);
+    }
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', applySiteColors);

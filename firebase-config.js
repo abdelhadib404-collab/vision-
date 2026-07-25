@@ -1,8 +1,8 @@
 // =====================================================
-// firebase-config.js
+// firebase-config.js - الإصدار المصلح بالكامل
 // =====================================================
 
-// ⚠️ استبدل هذه القيم بمفاتيح مشروعك الفعلية من Firebase Console
+// 🔑 استخدم المفاتيح من Firebase Console
 const firebaseConfig = {
     apiKey: "AIzaSyD528qS0sFVsIIX4wRFZtWQwCkkiV7M-YY",
     authDomain: "vision-aa7a0.firebaseapp.com",
@@ -10,20 +10,25 @@ const firebaseConfig = {
     projectId: "vision-aa7a0",
     storageBucket: "vision-aa7a0.firebasestorage.app",
     messagingSenderId: "817634922019",
-    appId: "1:817634922019:web:7154cfbe04d029e5d7eb96"
+    appId: "1:817634922019:web:7154cfbe04d029e5d7eb96",
+    measurementId: "G-S1HC513E8D"
 };
 
-// تهيئة Firebase
-if (!firebase.apps || !firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+// ✅ تهيئة Firebase بشكل صحيح
+if (typeof firebase !== 'undefined') {
+    if (!firebase.apps || !firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+        console.log('✅ Firebase initialized successfully');
+    } else {
+        console.log('✅ Firebase already initialized');
+    }
+} else {
+    console.error('❌ Firebase SDK not loaded!');
 }
 
+// ✅ المصادقة وقاعدة البيانات
 const db = firebase.database();
 const vpAuth = firebase.auth();
-
-// تمكين المزودين
-const googleProvider = new firebase.auth.GoogleAuthProvider();
-const githubProvider = new firebase.auth.GithubAuthProvider();
 
 // ===== دوال القراءة والكتابة =====
 async function loadFromFirebase(path) {
@@ -82,3 +87,5 @@ function showNotification(message, type = 'info') {
 
     setTimeout(() => toast.remove(), 4000);
 }
+
+console.log('✅ firebase-config.js loaded');
