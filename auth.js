@@ -1,5 +1,5 @@
 // =====================================================
-// auth.js - الإصدار المصلح بالكامل
+// auth.js - تسجيل دخول حقيقي
 // =====================================================
 
 let currentAuthUser = null;
@@ -27,20 +27,14 @@ function setCurrentUser(user) {
         console.log('✅ User saved:', user.email);
     } else {
         sessionStorage.removeItem('vp_user');
-        console.log('👤 User logged out');
     }
     return user;
 }
 
-// ===== ✅ تسجيل الدخول بـ Google (مصلح) =====
+// ===== ✅ تسجيل الدخول بـ Google (حقيقي) =====
 async function signInWithGoogle() {
     try {
         showNotification('⏳ جاري تسجيل الدخول بـ Google...', 'info');
-        
-        if (typeof firebase === 'undefined') {
-            showNotification('❌ Firebase not loaded', 'error');
-            return null;
-        }
         
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -66,10 +60,10 @@ async function signInWithGoogle() {
         setCurrentUser(userData);
         showNotification('✅ مرحباً ' + userData.displayName + '!', 'success');
         
-        // تحديث الصفحة بعد 1 ثانية
+        // التوجيه إلى صفحة حسابي
         setTimeout(() => {
             window.location.href = 'yourpage.html';
-        }, 1000);
+        }, 800);
         
         return userData;
         
@@ -80,8 +74,6 @@ async function signInWithGoogle() {
             showNotification('تم إغلاق النافذة', 'info');
         } else if (error.code === 'auth/unauthorized-domain') {
             showNotification('❌ أضف localhost في Firebase Console', 'error');
-        } else if (error.code === 'auth/api-key-not-valid') {
-            showNotification('❌ مفتاح API غير صحيح', 'error');
         } else {
             showNotification('❌ خطأ: ' + error.message, 'error');
         }
@@ -89,7 +81,7 @@ async function signInWithGoogle() {
     }
 }
 
-// ===== ✅ تسجيل الدخول بـ GitHub =====
+// ===== ✅ تسجيل الدخول بـ GitHub (حقيقي) =====
 async function signInWithGithub() {
     try {
         showNotification('⏳ جاري تسجيل الدخول بـ GitHub...', 'info');
@@ -118,7 +110,7 @@ async function signInWithGithub() {
         
         setTimeout(() => {
             window.location.href = 'yourpage.html';
-        }, 1000);
+        }, 800);
         
         return userData;
         
@@ -129,72 +121,7 @@ async function signInWithGithub() {
     }
 }
 
-// ===== ✅ تسجيل الدخول بالبريد (مصلح) =====
-async function loginWithEmailOnly(email) {
-    if (!email || !email.includes('@')) {
-        showNotification('❌ بريد إلكتروني غير صحيح', 'error');
-        return null;
-    }
-    
-    try {
-        showNotification('⏳ جاري تسجيل الدخول...', 'info');
-        
-        // البحث عن المستخدم في قاعدة البيانات
-        const users = await loadFromFirebase('users');
-        let foundUser = null;
-        let foundUid = null;
-        
-        if (users) {
-            for (const [uid, u] of Object.entries(users)) {
-                if (u.email && u.email.toLowerCase() === email.toLowerCase()) {
-                    foundUser = u;
-                    foundUid = uid;
-                    break;
-                }
-            }
-        }
-        
-        let userData;
-        
-        if (foundUser && foundUid) {
-            // مستخدم موجود
-            userData = {
-                uid: foundUid,
-                email: foundUser.email,
-                displayName: foundUser.username || foundUser.displayName || email.split('@')[0],
-                photoURL: foundUser.profilePic || 'img/default-avatar.jpg',
-                provider: 'email'
-            };
-            showNotification('✅ مرحباً بعودتك ' + userData.displayName + '!', 'success');
-        } else {
-            // مستخدم جديد
-            const uid = `email_${slugifyKey(email)}_${Date.now()}`;
-            userData = {
-                uid: uid,
-                email: email,
-                displayName: email.split('@')[0],
-                photoURL: 'img/default-avatar.jpg',
-                provider: 'email'
-            };
-            showNotification('✅ تم تسجيل الدخول!', 'success');
-        }
-        
-        setCurrentUser(userData);
-        
-        setTimeout(() => {
-            window.location.href = 'yourpage.html';
-        }, 1000);
-        
-        return userData;
-        
-    } catch (error) {
-        console.error('❌ Email login error:', error);
-        showNotification('❌ خطأ: ' + error.message, 'error');
-        return null;
-    }
-}
-
-// ===== تسجيل الدخول بـ Discord =====
+// ===== ✅ تسجيل الدخول بـ Discord (حقيقي) =====
 async function signInWithDiscord() {
     try {
         const cfg = await loadFromFirebase('site_settings/discord_oauth');
@@ -261,7 +188,7 @@ async function handleDiscordRedirect() {
         
         setTimeout(() => {
             window.location.href = 'yourpage.html';
-        }, 1000);
+        }, 800);
         
         return userData;
         
@@ -270,6 +197,76 @@ async function handleDiscordRedirect() {
         showNotification('❌ حدث خطأ', 'error');
         return null;
     }
+}
+
+// ===== ✅ تسجيل الدخول بالبريد =====
+async function loginWithEmailOnly(email) {
+    if (!email || !email.includes('@')) {
+        showNotification('❌ بريد إلكتروني غير صحيح', 'error');
+        return null;
+    }
+    
+    try {
+        showNotification('⏳ جاري تسجيل الدخول...', 'info');
+        
+        const users = await loadFromFirebase('users');
+        let foundUser = null;
+        let foundUid = null;
+        
+        if (users) {
+            for (const [uid, u] of Object.entries(users)) {
+                if (u.email && u.email.toLowerCase() === email.toLowerCase()) {
+                    foundUser = u;
+                    foundUid = uid;
+                    break;
+                }
+            }
+        }
+        
+        let userData;
+        
+        if (foundUser && foundUid) {
+            userData = {
+                uid: foundUid,
+                email: foundUser.email,
+                displayName: foundUser.username || foundUser.displayName || email.split('@')[0],
+                photoURL: foundUser.profilePic || 'img/default-avatar.jpg',
+                provider: 'email'
+            };
+            showNotification('✅ مرحباً بعودتك ' + userData.displayName + '!', 'success');
+        } else {
+            const uid = `email_${slugifyKey(email)}_${Date.now()}`;
+            userData = {
+                uid: uid,
+                email: email,
+                displayName: email.split('@')[0],
+                photoURL: 'img/default-avatar.jpg',
+                provider: 'email'
+            };
+            showNotification('✅ تم تسجيل الدخول!', 'success');
+        }
+        
+        setCurrentUser(userData);
+        
+        setTimeout(() => {
+            window.location.href = 'yourpage.html';
+        }, 800);
+        
+        return userData;
+        
+    } catch (error) {
+        console.error('❌ Email login error:', error);
+        showNotification('❌ خطأ: ' + error.message, 'error');
+        return null;
+    }
+}
+
+// ===== الدالة الموحدة =====
+async function authWithProvider(provider) {
+    if (provider === 'google') return await signInWithGoogle();
+    if (provider === 'github') return await signInWithGithub();
+    if (provider === 'discord') return await signInWithDiscord();
+    return null;
 }
 
 // ===== تسجيل الخروج =====
@@ -300,6 +297,7 @@ window.signInWithGithub = signInWithGithub;
 window.signInWithDiscord = signInWithDiscord;
 window.handleDiscordRedirect = handleDiscordRedirect;
 window.loginWithEmailOnly = loginWithEmailOnly;
+window.authWithProvider = authWithProvider;
 window.logoutUser = logoutUser;
 
 console.log('✅ auth.js loaded');

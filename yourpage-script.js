@@ -7,24 +7,10 @@ let userData = null;
 let selectedCategoryId = null;
 let usernameIsAvailable = false;
 let usernameCheckTimer = null;
-let emailConfig = null;
-
-// ===== تحميل إعدادات البريد =====
-async function initEmailJS() {
-    try {
-        emailConfig = await loadFromFirebase('email_config');
-        if (emailConfig?.public_key) {
-            emailjs.init(emailConfig.public_key);
-        }
-    } catch (error) {
-        console.error('Error loading email config:', error);
-    }
-}
 
 // ===== تهيئة الصفحة =====
 async function initPage() {
-    await initEmailJS();
-    
+    // معالجة إعادة توجيه Discord
     const discordResult = await handleDiscordRedirect();
     if (discordResult) {
         currentUser = discordResult;
@@ -47,18 +33,15 @@ async function initPage() {
 function showAuthSuccess() {
     if (!currentUser) return;
     
-    document.getElementById('auth-profile-pic').src = currentUser.photoURL;
-    document.getElementById('auth-username').textContent = currentUser.displayName;
-    document.getElementById('auth-email').textContent = currentUser.email || 'لا يوجد بريد ظاهر';
-    document.getElementById('auth-user-info').style.display = 'block';
+    document.getElementById('profile-preview-img').src = currentUser.photoURL || 'img/default-avatar.jpg';
+    document.getElementById('profile-display-name').textContent = currentUser.displayName || 'مستخدم';
+    document.getElementById('profile-email').textContent = currentUser.email || 'لا يوجد بريد';
     
-    document.getElementById('email-login-box').style.display = 'none';
-    document.getElementById('auth-or-divider').style.display = 'none';
-    document.getElementById('auth-buttons').style.display = 'none';
+    document.getElementById('step-auth').style.display = 'none';
+    document.getElementById('step-profile').style.display = 'block';
     
-    // تحديث رأس الصفحة
     updateHeaderUI();
-    
+    loadCategories();
     checkUserAndRedirect();
 }
 
@@ -69,9 +52,8 @@ function updateHeaderUI() {
         const headerUser = document.getElementById('header-user');
         if (headerUser) {
             headerUser.style.display = 'flex';
-            document.getElementById('header-avatar').src = user.photoURL;
-            document.getElementById('header-username').textContent = user.displayName;
-            document.getElementById('header-username').style.display = 'inline';
+            document.getElementById('header-avatar').src = user.photoURL || 'img/default-avatar.jpg';
+            document.getElementById('header-username').textContent = user.displayName || 'مستخدم';
         }
     }
 }
@@ -96,11 +78,12 @@ async function checkUserAndRedirect() {
             }
         }
         
-        goToStep2();
+        // إذا لم يكن هناك مستخدم، نبقى في خطوة الملف الشخصي
+        document.getElementById('step-profile').style.display = 'block';
         
     } catch (error) {
         console.error('Error checking user:', error);
-        goToStep2();
+        document.getElementById('step-profile').style.display = 'block';
     }
 }
 
@@ -108,6 +91,11 @@ async function checkUserAndRedirect() {
 async function handleEmailLogin() {
     const input = document.getElementById('email-login-input');
     const email = input.value.trim();
+    
+    if (!email || !email.includes('@')) {
+        showNotification('❌ بريد إلكتروني غير صحيح', 'error');
+        return;
+    }
     
     const result = await loginWithEmailOnly(email);
     if (result) {
@@ -118,28 +106,11 @@ async function handleEmailLogin() {
 
 // ===== تسجيل الدخول بمزود =====
 async function handleProviderLogin(provider) {
-    const buttons = document.getElementById('auth-buttons');
-    const loading = document.getElementById('auth-loading');
-    
-    buttons.style.display = 'none';
-    loading.style.display = 'flex';
-    
     const result = await authWithProvider(provider);
-    
-    loading.style.display = 'none';
-    buttons.style.display = 'flex';
-    
     if (result) {
         currentUser = result;
         showAuthSuccess();
     }
-}
-
-// ===== الانتقال للخطوة 2 =====
-function goToStep2() {
-    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-    document.getElementById('step-profile').style.display = 'block';
-    loadCategories();
 }
 
 // ===== تحميل التخصصات =====
@@ -149,7 +120,7 @@ async function loadCategories() {
         const grid = document.getElementById('category-grid');
         grid.innerHTML = '';
         
-        if (!categories) {
+        if (!categories || Object.keys(categories).length === 0) {
             grid.innerHTML = '<p style="color:#ff6b6b;">لا توجد تخصصات حالياً</p>';
             return;
         }
@@ -159,7 +130,7 @@ async function loadCategories() {
             label.className = 'service-check';
             label.innerHTML = `
                 <input type="radio" name="category" value="${cat.id}" />
-                <i class="fas ${cat.icon}"></i> ${cat.name}
+                <i class="fas ${cat.icon || 'fa-star'}"></i> ${cat.name}
             `;
             grid.appendChild(label);
         });
@@ -209,7 +180,7 @@ async function checkUsernameAvailability() {
     }
 }
 
-// ===== الانتقال للخطوة 3 =====
+// ===== الانتقال للخطوة 3 (الدفع) =====
 async function goToStep3() {
     const username = document.getElementById('username').value.trim();
     const phone = document.getElementById('real-phone').value.trim();
@@ -241,13 +212,13 @@ async function goToStep3() {
         return;
     }
     
+    // حفظ البيانات المؤقتة
     window._tempUserData = {
         username: username,
         usernameKey: slugifyKey(username),
         phone: phone,
         categoryId: selectedCategoryId,
-        profilePic: fileInput.files[0],
-        bannerPic: document.getElementById('bannerPic').files?.[0] || null
+        profilePic: fileInput.files[0]
     };
     
     document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
@@ -263,15 +234,16 @@ async function loadPaymentMethods() {
         if (!container) return;
         
         container.innerHTML = '';
-        const defaultMethods = ['ccp', 'redotpay', 'baridimob'];
-        const labels = { ccp: 'CCP', redotpay: 'Redotpay', baridimob: 'Baridimob' };
         
-        const methodKeys = methods ? Object.keys(methods) : defaultMethods;
-        methodKeys.forEach(key => {
+        if (!methods || Object.keys(methods).length === 0) {
+            container.innerHTML = '<p style="color:#5a6f73;">لا توجد طرق دفع</p>';
+            return;
+        }
+        
+        Object.entries(methods).forEach(([key, m]) => {
             const btn = document.createElement('button');
             btn.className = 'payment-btn';
-            const label = methods?.[key]?.label || labels[key] || key;
-            btn.innerHTML = `<i class="fas fa-wallet"></i> ${label}`;
+            btn.innerHTML = `<i class="fas fa-wallet"></i> ${m.label || key}`;
             btn.onclick = () => showPaymentCode(key);
             container.appendChild(btn);
         });
@@ -286,9 +258,8 @@ async function showPaymentCode(method) {
         const methods = await loadFromFirebase('payment_methods');
         const value = methods?.[method]?.value || 'يرجى التواصل مع الإدارة';
         
-        const container = document.getElementById('payment-code-container');
         document.getElementById('payment-code').textContent = value;
-        container.style.display = 'block';
+        document.getElementById('payment-code-container').style.display = 'block';
         window._selectedPaymentMethod = method;
     } catch (error) {
         console.error('Error showing payment code:', error);
@@ -310,7 +281,7 @@ async function confirmPayment() {
     }
 
     const statusDiv = document.getElementById('payment-status');
-    statusDiv.innerHTML = '<p style="color: var(--color-primary);">⏳ جاري تسجيل طلبك...</p>';
+    statusDiv.innerHTML = '<p style="color: #b0e0e6;">⏳ جاري تسجيل طلبك...</p>';
 
     // حجز اسم المستخدم
     const usernameRef = db.ref(`usernames/${tempData.usernameKey}`);
@@ -324,9 +295,8 @@ async function confirmPayment() {
         return;
     }
 
-    // قراءة الصور
+    // قراءة الصورة
     const profilePicData = await readFileAsDataURL(tempData.profilePic);
-    const bannerPicData = tempData.bannerPic ? await readFileAsDataURL(tempData.bannerPic) : '';
 
     const userDataToSave = {
         uid: currentUser.uid,
@@ -338,7 +308,6 @@ async function confirmPayment() {
         phone: tempData.phone,
         categoryId: tempData.categoryId,
         profilePic: profilePicData,
-        bannerPic: bannerPicData,
         paymentMethod: window._selectedPaymentMethod || 'غير محدد',
         paymentSource: paymentSource,
         paymentTime: new Date().toLocaleString('ar-DZ'),
@@ -351,15 +320,11 @@ async function confirmPayment() {
         works: []
     };
 
-    // حفظ في Firebase
     await saveToFirebase(`users/${currentUser.uid}`, userDataToSave);
-
-    // إرسال إيميل للمسؤول
-    await sendEmailToAdmin(userDataToSave);
 
     statusDiv.innerHTML = `
         <p style="color: #4CAF50;">✅ تم تسجيل طلبك بنجاح!</p>
-        <p style="color: var(--color-text-muted);">⏳ سيتم مراجعة طلبك خلال 1-40 ساعة</p>
+        <p style="color: #5a6f73;">⏳ سيتم مراجعة طلبك خلال 1-40 ساعة</p>
     `;
 
     setTimeout(() => {
@@ -379,42 +344,6 @@ function readFileAsDataURL(file) {
     });
 }
 
-// ===== إرسال إيميل للمسؤول =====
-async function sendEmailToAdmin(data) {
-    try {
-        const config = await loadFromFirebase('email_config');
-        if (!config || !config.service_id || !config.template_id) {
-            console.warn('⚠️ Email not configured');
-            return false;
-        }
-        
-        if (config.public_key) {
-            emailjs.init(config.public_key);
-        }
-        
-        const templateParams = {
-            username: data.username || 'غير معروف',
-            email: data.email || 'لا يوجد بريد',
-            phone: data.phone || 'غير متوفر',
-            category: data.categoryId || 'لا يوجد تخصص',
-            payment_method: data.paymentMethod || 'غير محدد',
-            payment_source: data.paymentSource || 'غير محدد',
-            payment_time: data.paymentTime || 'غير محدد',
-            status: 'قيد الانتظار',
-            created_at: new Date().toLocaleString('ar-DZ'),
-            profile_link: `${window.location.origin}/profile.html?uid=${data.uid}`,
-            admin_link: `${window.location.origin}/admin.html`
-        };
-        
-        await emailjs.send(config.service_id, config.template_id, templateParams);
-        return true;
-        
-    } catch (error) {
-        console.error('Email error:', error);
-        return false;
-    }
-}
-
 // ===== عرض لوحة التحكم =====
 function showDashboard(user) {
     document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
@@ -426,7 +355,6 @@ function showDashboard(user) {
     document.getElementById('dash-email').textContent = user.email || '';
     document.getElementById('edit-bio').value = user.bio || '';
     document.getElementById('edit-portfolio').value = user.portfolioLink || '';
-    document.getElementById('edit-phone').value = user.phone || '';
     
     loadUserWorks();
     loadUserStats();
@@ -535,13 +463,11 @@ async function deleteWork(index) {
 async function updatePortfolio() {
     const bio = document.getElementById('edit-bio').value.trim();
     const portfolioLink = document.getElementById('edit-portfolio').value.trim();
-    const phone = document.getElementById('edit-phone').value.trim();
     
     try {
         await updateToFirebase(`users/${currentUser.uid}`, {
             bio: bio,
-            portfolioLink: portfolioLink,
-            phone: phone
+            portfolioLink: portfolioLink
         });
         showNotification('✅ تم حفظ التغييرات بنجاح!', 'success');
     } catch (error) {
@@ -568,43 +494,11 @@ async function loadWaitingText() {
     }
 }
 
-// ===== تحديث الصورة الشخصية =====
-async function updateProfilePic(file) {
-    if (!file) return;
-    try {
-        const data = await readFileAsDataURL(file);
-        await saveToFirebase(`users/${currentUser.uid}/profilePic`, data);
-        document.getElementById('dash-profile-pic').src = data;
-        showNotification('✅ تم تحديث الصورة الشخصية!', 'success');
-    } catch (error) {
-        showNotification('❌ حدث خطأ', 'error');
-    }
-}
-
-// ===== تحديث البانر =====
-async function updateBannerPic(file) {
-    if (!file) return;
-    try {
-        const data = await readFileAsDataURL(file);
-        await saveToFirebase(`users/${currentUser.uid}/bannerPic`, data);
-        showNotification('✅ تم تحديث البانر!', 'success');
-    } catch (error) {
-        showNotification('❌ حدث خطأ', 'error');
-    }
-}
-
-// ===== تسجيل الخروج =====
-function handleLogout() {
-    if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-        logoutUser();
-    }
-}
-
 // ===== تهيئة الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
     initPage();
-    loadWaitingText();
     updateHeaderUI();
+    loadWaitingText();
 
     // أحداث الإدخال
     const emailLoginInput = document.getElementById('email-login-input');
@@ -635,56 +529,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const reader = new FileReader();
                 reader.onload = function(e2) {
                     previewImage.src = e2.target.result;
-                    previewContainer.style.display = 'flex';
-                    uploadBox.style.display = 'none';
+                    previewContainer.style.display = 'block';
                 };
                 reader.readAsDataURL(e.target.files[0]);
             }
-        });
-    }
-
-    // رفع البانر
-    const bannerUploadBox = document.getElementById('bannerUploadBox');
-    const bannerInput = document.getElementById('bannerPic');
-    const bannerPreview = document.getElementById('bannerPreviewContainer');
-    const bannerPreviewImage = document.getElementById('bannerPreviewImage');
-    
-    if (bannerUploadBox) {
-        bannerUploadBox.addEventListener('click', () => bannerInput.click());
-        bannerInput.addEventListener('change', function(e) {
-            if (e.target.files?.[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e2) {
-                    bannerPreviewImage.src = e2.target.result;
-                    bannerPreview.style.display = 'block';
-                    bannerUploadBox.style.display = 'none';
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
-        });
-    }
-
-    // تحديث الصور في لوحة التحكم
-    const updateProfileBox = document.getElementById('updateProfileBox');
-    const updateProfileInput = document.getElementById('updateProfilePic');
-    if (updateProfileBox) {
-        updateProfileBox.addEventListener('click', () => updateProfileInput.click());
-        updateProfileInput.addEventListener('change', function(e) {
-            if (e.target.files?.[0]) updateProfilePic(e.target.files[0]);
-        });
-    }
-
-    const updateBannerBox = document.getElementById('updateBannerBox');
-    const updateBannerInput = document.getElementById('updateBannerPic');
-    if (updateBannerBox) {
-        updateBannerBox.addEventListener('click', () => updateBannerInput.click());
-        updateBannerInput.addEventListener('change', function(e) {
-            if (e.target.files?.[0]) updateBannerPic(e.target.files[0]);
         });
     }
 });
 
-// تصدير الدوال
+// ===== تصدير الدوال =====
 window.handleEmailLogin = handleEmailLogin;
 window.handleProviderLogin = handleProviderLogin;
 window.goToStep3 = goToStep3;
@@ -692,5 +545,4 @@ window.confirmPayment = confirmPayment;
 window.updatePortfolio = updatePortfolio;
 window.addWork = addWork;
 window.deleteWork = deleteWork;
-window.goToStep2 = goToStep2;
-window.handleLogout = handleLogout;
+window.logoutUser = logoutUser;

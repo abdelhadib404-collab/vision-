@@ -18,8 +18,6 @@ if (typeof firebase !== 'undefined') {
         firebase.initializeApp(firebaseConfig);
         console.log('✅ Firebase initialized');
     }
-} else {
-    console.error('❌ Firebase SDK not loaded!');
 }
 
 const db = firebase.database();
@@ -81,3 +79,5 @@ function showNotification(message, type = 'info') {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }
+
+console.log('✅ firebase-config.js loaded');
