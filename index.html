@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
     <title>Vision+</title>
     <style>
+        /* ===== رأس الصفحة ===== */
         .header-user {
             display: flex;
             align-items: center;
@@ -15,8 +16,8 @@
             position: relative;
         }
         .header-user img {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid #b0e0e6;
@@ -31,7 +32,7 @@
         }
         .user-dropdown {
             position: absolute;
-            top: 45px;
+            top: 50px;
             right: 0;
             background: #fff;
             border-radius: 12px;
@@ -55,13 +56,10 @@
             transition: 0.2s;
         }
         .user-dropdown a:hover { background: #f4f9fa; }
-        .user-dropdown a:last-child {
-            border-bottom: none;
-            color: #ff6b6b;
-        }
+        .user-dropdown a:last-child { border-bottom: none; color: #ff6b6b; }
         .user-dropdown a i { width: 20px; text-align: center; }
-        
-        /* تنسيقات الكاردات */
+
+        /* ===== الكاردات ===== */
         .cards .content {
             display: flex;
             justify-content: center;
@@ -118,7 +116,7 @@
             color: #b0e0e6;
         }
 
-        /* تنسيقات الموهوبين */
+        /* ===== الموهوبين ===== */
         .freelancers-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -217,6 +215,11 @@
             font-size: 2.2em;
             letter-spacing: 2px;
         }
+        .header .nav {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
     </style>
 </head>
 <body>
@@ -226,6 +229,7 @@
             <a href="index.html">الرئيسية</a>
             <a href="yourpage.html">حسابي</a>
             <a href="admin.html" style="color:#ff6b6b;">الإدارة</a>
+            <!-- صورة المستخدم في اليمين -->
             <div class="header-user" id="header-user" style="display:none;" onclick="toggleDropdown(event)">
                 <img id="header-avatar" src="img/default-avatar.jpg" alt="avatar" />
                 <span class="username" id="header-username">مستخدم</span>
@@ -327,14 +331,14 @@
                 let html = '';
                 Object.values(categories).forEach(cat => {
                     html += `
-                        <div class="card" onclick="showCategory('${cat.id}')">
+                        <div class="card" onclick="goToCategoryPage('${cat.id}')">
                             <div class="icon" style="color:${cat.color || '#b0e0e6'};">
                                 <i class="fas ${cat.icon || 'fa-star'}"></i>
                             </div>
                             <div class="info">
                                 <h2>${cat.name}</h2>
                                 <p>عرض الموهوبين في هذا التخصص</p>
-                                <a href="#" onclick="event.stopPropagation(); showCategory('${cat.id}')">عرض</a>
+                                <a href="#" onclick="event.stopPropagation(); goToCategoryPage('${cat.id}')">عرض</a>
                             </div>
                         </div>
                     `;
@@ -347,75 +351,9 @@
             }
         }
 
-        // ===== عرض الموهوبين حسب التخصص =====
-        async function showCategory(categoryId) {
-            try {
-                const users = await loadFromFirebase('users');
-                const container = document.getElementById('freelancers-container');
-                const categories = await loadFromFirebase('categories');
-                
-                const cat = categories ? Object.values(categories).find(c => c.id === categoryId) : null;
-                const catName = cat ? cat.name : categoryId;
-                
-                if (!users) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <p>لا يوجد موهوبين في ${catName}</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                let freelancers = Object.values(users).filter(u => 
-                    u.status === 'approved' && u.categoryId === categoryId
-                );
-                
-                if (freelancers.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <p>لا يوجد موهوبين في ${catName} حالياً</p>
-                            <p style="font-weight:400; margin-top:10px;">كن الأول! <a href="yourpage.html" style="color:#b0e0e6;">سجل الآن</a></p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                freelancers.sort((a, b) => (b.views || 0) - (a.views || 0));
-                
-                let html = `<div class="freelancers-grid">`;
-                freelancers.forEach((f, index) => {
-                    html += `
-                        <div class="freelancer-card" onclick="viewProfile('${f.uid}')">
-                            <div class="rank">#${index + 1}</div>
-                            <img src="${f.profilePic || 'img/default-avatar.jpg'}" alt="${f.username}" />
-                            <div class="name">${f.username || 'غير معروف'}</div>
-                            <div class="category">${f.categoryId || 'لا يوجد تخصص'}</div>
-                            <div class="stats">
-                                <span><i class="fas fa-eye"></i> ${f.views || 0}</span>
-                                <span><i class="fas fa-heart" style="color:#ff6b6b;"></i> ${f.likes || 0}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += `</div>`;
-                container.innerHTML = html;
-                
-                document.getElementById('viral-title').textContent = `📂 ${catName}`;
-                document.getElementById('viral-note').textContent = `الموهوبون في مجال ${catName}`;
-                
-                document.getElementById('viral').scrollIntoView({ behavior: 'smooth' });
-                
-            } catch (error) {
-                console.error('Error showing category:', error);
-                document.getElementById('freelancers-container').innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle" style="color:#ff6b6b;"></i>
-                        <p>❌ حدث خطأ في تحميل الموهوبين</p>
-                    </div>
-                `;
-            }
+        // ===== الانتقال إلى صفحة الكاتيقوري =====
+        function goToCategoryPage(categoryId) {
+            window.location.href = `category.html?cat=${categoryId}`;
         }
 
         // ===== تحميل النصوص =====
@@ -426,10 +364,6 @@
                     if (texts.hero_title) document.getElementById('hero-title').textContent = texts.hero_title;
                     if (texts.hero_subtitle) document.getElementById('hero-subtitle').textContent = texts.hero_subtitle;
                     if (texts.footer_text) document.getElementById('footer-text').textContent = texts.footer_text;
-                    if (texts.viral_title) document.getElementById('viral-title').textContent = texts.viral_title;
-                    if (texts.viral_note) {
-                        document.getElementById('viral-note').textContent = texts.viral_note;
-                    }
                 }
             } catch (error) {
                 console.error('Error loading texts:', error);

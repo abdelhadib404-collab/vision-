@@ -1,10 +1,9 @@
 // =====================================================
-// auth.js - تسجيل دخول حقيقي
+// auth.js
 // =====================================================
 
 let currentAuthUser = null;
 
-// ===== الحصول على المستخدم الحالي =====
 function getCurrentUser() {
     if (currentAuthUser) return currentAuthUser;
     try {
@@ -19,7 +18,6 @@ function getCurrentUser() {
     return null;
 }
 
-// ===== حفظ المستخدم =====
 function setCurrentUser(user) {
     currentAuthUser = user;
     if (user) {
@@ -31,7 +29,7 @@ function setCurrentUser(user) {
     return user;
 }
 
-// ===== ✅ تسجيل الدخول بـ Google (حقيقي) =====
+// ===== تسجيل الدخول بـ Google =====
 async function signInWithGoogle() {
     try {
         showNotification('⏳ جاري تسجيل الدخول بـ Google...', 'info');
@@ -60,7 +58,6 @@ async function signInWithGoogle() {
         setCurrentUser(userData);
         showNotification('✅ مرحباً ' + userData.displayName + '!', 'success');
         
-        // التوجيه إلى صفحة حسابي
         setTimeout(() => {
             window.location.href = 'yourpage.html';
         }, 800);
@@ -69,11 +66,8 @@ async function signInWithGoogle() {
         
     } catch (error) {
         console.error('❌ Google error:', error);
-        
         if (error.code === 'auth/popup-closed-by-user') {
             showNotification('تم إغلاق النافذة', 'info');
-        } else if (error.code === 'auth/unauthorized-domain') {
-            showNotification('❌ أضف localhost في Firebase Console', 'error');
         } else {
             showNotification('❌ خطأ: ' + error.message, 'error');
         }
@@ -81,7 +75,7 @@ async function signInWithGoogle() {
     }
 }
 
-// ===== ✅ تسجيل الدخول بـ GitHub (حقيقي) =====
+// ===== تسجيل الدخول بـ GitHub =====
 async function signInWithGithub() {
     try {
         showNotification('⏳ جاري تسجيل الدخول بـ GitHub...', 'info');
@@ -121,7 +115,7 @@ async function signInWithGithub() {
     }
 }
 
-// ===== ✅ تسجيل الدخول بـ Discord (حقيقي) =====
+// ===== تسجيل الدخول بـ Discord =====
 async function signInWithDiscord() {
     try {
         const cfg = await loadFromFirebase('site_settings/discord_oauth');
@@ -199,7 +193,7 @@ async function handleDiscordRedirect() {
     }
 }
 
-// ===== ✅ تسجيل الدخول بالبريد =====
+// ===== تسجيل الدخول بالبريد =====
 async function loginWithEmailOnly(email) {
     if (!email || !email.includes('@')) {
         showNotification('❌ بريد إلكتروني غير صحيح', 'error');
@@ -261,7 +255,6 @@ async function loginWithEmailOnly(email) {
     }
 }
 
-// ===== الدالة الموحدة =====
 async function authWithProvider(provider) {
     if (provider === 'google') return await signInWithGoogle();
     if (provider === 'github') return await signInWithGithub();
@@ -269,7 +262,6 @@ async function authWithProvider(provider) {
     return null;
 }
 
-// ===== تسجيل الخروج =====
 async function logoutUser() {
     try {
         if (vpAuth) {
@@ -283,14 +275,12 @@ async function logoutUser() {
     setTimeout(() => window.location.reload(), 500);
 }
 
-// ===== مراقبة حالة المصادقة =====
 if (typeof vpAuth !== 'undefined') {
     vpAuth.onAuthStateChanged((firebaseUser) => {
         console.log('🔥 Auth state:', firebaseUser ? 'Logged in' : 'Logged out');
     });
 }
 
-// ===== تصدير الدوال =====
 window.getCurrentUser = getCurrentUser;
 window.signInWithGoogle = signInWithGoogle;
 window.signInWithGithub = signInWithGithub;

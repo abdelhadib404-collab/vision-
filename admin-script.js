@@ -1,8 +1,9 @@
 // =====================================================
-// admin-script.js - الإصدار المصلح
+// admin-script.js
 // =====================================================
 
 const DEFAULT_ADMIN_PASSWORD = 'admin123';
+let allUsers = {};
 
 // ===== تسجيل دخول الإدارة =====
 async function loginAdmin() {
@@ -45,7 +46,6 @@ function switchTab(tab) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
     
-    // العثور على الزر المناسب
     const buttons = document.querySelectorAll('.admin-tab');
     for (const btn of buttons) {
         if (btn.textContent.includes(tab) || btn.dataset.tab === tab) {
@@ -69,6 +69,7 @@ function switchTab(tab) {
 async function loadAdminData() {
     try {
         const users = await loadFromFirebase('users') || {};
+        allUsers = users;
         const list = Object.values(users);
         const pending = list.filter(u => u.status === 'pending');
         const approved = list.filter(u => u.status === 'approved');
@@ -141,47 +142,110 @@ function renderApprovedTable(approved) {
     `).join('');
 }
 
-// ===== قبول / رفض / حذف =====
+// ===== قبول المستخدم =====
 async function approveUser(uid) {
     try {
+        const user = allUsers[uid];
+        if (!user) {
+            showNotification('❌ المستخدم غير موجود', 'error');
+            return;
+        }
+        
+        // حفظ اسم المستخدم
+        if (user.usernameKey) {
+            await saveToFirebase(`usernames/${user.usernameKey}`, uid);
+        }
+        
+        // تحديث الحالة
         await saveToFirebase(`users/${uid}/status`, 'approved');
-        if (!await loadFromFirebase(`users/${uid}/joinedDate`)) {
+        if (!user.joinedDate) {
             await saveToFirebase(`users/${uid}/joinedDate`, new Date().toLocaleDateString('ar-DZ'));
         }
+        
         showNotification('✅ تم قبول الطلب', 'success');
+        
+        // إرسال إيميل للمستخدم
+        await sendApprovalEmail(user);
+        
         loadAdminData();
+        
     } catch (error) {
-        showNotification('❌ حدث خطأ', 'error');
+        console.error('Error approving user:', error);
+        showNotification('❌ حدث خطأ أثناء القبول', 'error');
     }
 }
 
-async function rejectUser(uid) {
-    if (!confirm('هل أنت متأكد؟')) return;
+// ===== إرسال إيميل القبول =====
+async function sendApprovalEmail(user) {
     try {
-        const user = await loadFromFirebase(`users/${uid}`);
+        const config = await loadFromFirebase('email_config');
+        if (!config || !config.service_id || !config.template_id) {
+            console.warn('⚠️ Email not configured');
+            return false;
+        }
+        
+        if (typeof emailjs === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+            document.head.appendChild(script);
+            await new Promise(resolve => script.onload = resolve);
+        }
+        
+        if (config.public_key) {
+            emailjs.init(config.public_key);
+        }
+        
+        const templateParams = {
+            username: user.username || user.displayName || 'مستخدم',
+            email: user.email,
+            category: user.categoryId || 'لا يوجد',
+            status: '✅ تم قبول طلبك',
+            profile_link: `${window.location.origin}/profile.html?uid=${user.uid}`,
+            site_link: window.location.origin
+        };
+        
+        await emailjs.send(config.service_id, config.template_id, templateParams);
+        console.log('✅ Approval email sent to:', user.email);
+        return true;
+        
+    } catch (error) {
+        console.error('Email error:', error);
+        return false;
+    }
+}
+
+// ===== رفض المستخدم =====
+async function rejectUser(uid) {
+    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟')) return;
+    try {
+        const user = allUsers[uid];
         await saveToFirebase(`users/${uid}/status`, 'rejected');
-        if (user?.usernameKey) {
+        if (user && user.usernameKey) {
             await db.ref(`usernames/${user.usernameKey}`).remove();
         }
-        showNotification('✅ تم الرفض', 'success');
+        showNotification('✅ تم رفض الطلب', 'success');
         loadAdminData();
     } catch (error) {
-        showNotification('❌ حدث خطأ', 'error');
+        console.error('Error rejecting user:', error);
+        showNotification('❌ حدث خطأ أثناء الرفض', 'error');
     }
 }
 
+// ===== حذف المستخدم =====
 async function deleteUser(uid) {
     if (!confirm('حذف المستخدم نهائياً؟')) return;
     try {
-        const user = await loadFromFirebase(`users/${uid}`);
-        if (user?.usernameKey) {
+        const user = allUsers[uid];
+        if (user && user.usernameKey) {
             await db.ref(`usernames/${user.usernameKey}`).remove();
         }
         await db.ref(`users/${uid}`).remove();
-        showNotification('✅ تم الحذف', 'success');
+        await db.ref(`likes/${uid}`).remove();
+        showNotification('✅ تم حذف المستخدم', 'success');
         loadAdminData();
     } catch (error) {
-        showNotification('❌ حدث خطأ', 'error');
+        console.error('Error deleting user:', error);
+        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
     }
 }
 
@@ -348,7 +412,6 @@ async function deletePaymentMethod(key) {
     }
 }
 
-// ===== إعدادات البريد و Discord والألوان =====
 async function loadEmailConfigAdmin() {
     try {
         const cfg = await loadFromFirebase('email_config');
@@ -450,7 +513,6 @@ async function resetColors() {
     }
 }
 
-// ===== أدوات مساعدة =====
 function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -461,16 +523,13 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// ===== عند تحميل الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
-    // التحقق من تسجيل الدخول
     if (sessionStorage.getItem('vp_admin_logged_in') === 'true') {
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-dashboard').style.display = 'block';
         loadAdminData();
     }
 
-    // دخول بالضغط على Enter
     const pwInput = document.getElementById('admin-password');
     if (pwInput) {
         pwInput.addEventListener('keypress', function(e) {
@@ -479,7 +538,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// تصدير الدوال
 window.loginAdmin = loginAdmin;
 window.switchTab = switchTab;
 window.loadAdminData = loadAdminData;

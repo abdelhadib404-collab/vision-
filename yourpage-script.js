@@ -10,7 +10,6 @@ let usernameCheckTimer = null;
 
 // ===== تهيئة الصفحة =====
 async function initPage() {
-    // معالجة إعادة توجيه Discord
     const discordResult = await handleDiscordRedirect();
     if (discordResult) {
         currentUser = discordResult;
@@ -78,7 +77,6 @@ async function checkUserAndRedirect() {
             }
         }
         
-        // إذا لم يكن هناك مستخدم، نبقى في خطوة الملف الشخصي
         document.getElementById('step-profile').style.display = 'block';
         
     } catch (error) {
@@ -186,7 +184,7 @@ async function goToStep3() {
     const phone = document.getElementById('real-phone').value.trim();
 
     if (!username || username.length < 3) {
-        showNotification('❌ يرجى إدخال اسم مستخدم صحيح', 'error');
+        showNotification('❌ يرجى إدخال اسم مستخدم صحيح (3 أحرف على الأقل)', 'error');
         return;
     }
 
@@ -212,18 +210,31 @@ async function goToStep3() {
         return;
     }
     
-    // حفظ البيانات المؤقتة
+    // قراءة الصورة فوراً
+    const profilePicData = await readFileAsDataURL(fileInput.files[0]);
+    
+    // حفظ البيانات
     window._tempUserData = {
         username: username,
         usernameKey: slugifyKey(username),
         phone: phone,
         categoryId: selectedCategoryId,
-        profilePic: fileInput.files[0]
+        profilePic: profilePicData
     };
     
     document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
     document.getElementById('step-payment').style.display = 'block';
     loadPaymentMethods();
+}
+
+// ===== قراءة ملف كـ Base64 =====
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 // ===== تحميل طرق الدفع =====
@@ -266,7 +277,7 @@ async function showPaymentCode(method) {
     }
 }
 
-// ===== تأكيد الدفع =====
+// ===== تأكيد الدفع وحفظ المستخدم =====
 async function confirmPayment() {
     const paymentSource = document.getElementById('payment-source').value.trim();
     if (!paymentSource) {
@@ -295,24 +306,23 @@ async function confirmPayment() {
         return;
     }
 
-    // قراءة الصورة
-    const profilePicData = await readFileAsDataURL(tempData.profilePic);
-
+    // حفظ بيانات المستخدم
     const userDataToSave = {
         uid: currentUser.uid,
         email: currentUser.email,
-        displayName: currentUser.displayName,
-        provider: currentUser.provider,
+        displayName: currentUser.displayName || tempData.username,
+        provider: currentUser.provider || 'email',
         username: tempData.username,
         usernameKey: tempData.usernameKey,
         phone: tempData.phone,
         categoryId: tempData.categoryId,
-        profilePic: profilePicData,
+        profilePic: tempData.profilePic,
         paymentMethod: window._selectedPaymentMethod || 'غير محدد',
         paymentSource: paymentSource,
         paymentTime: new Date().toLocaleString('ar-DZ'),
         status: 'pending',
         createdAt: new Date().toISOString(),
+        joinedDate: new Date().toLocaleDateString('ar-DZ'),
         bio: '',
         portfolioLink: '',
         views: 0,
@@ -321,6 +331,9 @@ async function confirmPayment() {
     };
 
     await saveToFirebase(`users/${currentUser.uid}`, userDataToSave);
+
+    // إرسال إيميل للمسؤول
+    await sendEmailToAdmin(userDataToSave);
 
     statusDiv.innerHTML = `
         <p style="color: #4CAF50;">✅ تم تسجيل طلبك بنجاح!</p>
@@ -334,14 +347,48 @@ async function confirmPayment() {
     }, 2000);
 }
 
-// ===== قراءة ملف كـ Base64 =====
-function readFileAsDataURL(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
+// ===== إرسال إيميل للمسؤول =====
+async function sendEmailToAdmin(data) {
+    try {
+        const config = await loadFromFirebase('email_config');
+        if (!config || !config.service_id || !config.template_id) {
+            console.warn('⚠️ Email not configured');
+            return false;
+        }
+        
+        // تحميل EmailJS
+        if (typeof emailjs === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+            document.head.appendChild(script);
+            await new Promise(resolve => script.onload = resolve);
+        }
+        
+        if (config.public_key) {
+            emailjs.init(config.public_key);
+        }
+        
+        const templateParams = {
+            username: data.username || 'غير معروف',
+            email: data.email || 'لا يوجد بريد',
+            phone: data.phone || 'غير متوفر',
+            category: data.categoryId || 'لا يوجد تخصص',
+            payment_method: data.paymentMethod || 'غير محدد',
+            payment_source: data.paymentSource || 'غير محدد',
+            payment_time: data.paymentTime || 'غير محدد',
+            uid: data.uid,
+            profile_link: `${window.location.origin}/profile.html?uid=${data.uid}`,
+            admin_link: `${window.location.origin}/admin.html`
+        };
+        
+        await emailjs.send(config.service_id, config.template_id, templateParams);
+        console.log('✅ Email sent to admin');
+        return true;
+        
+    } catch (error) {
+        console.error('Email error:', error);
+        return false;
+    }
 }
 
 // ===== عرض لوحة التحكم =====
@@ -500,7 +547,6 @@ document.addEventListener('DOMContentLoaded', function() {
     updateHeaderUI();
     loadWaitingText();
 
-    // أحداث الإدخال
     const emailLoginInput = document.getElementById('email-login-input');
     if (emailLoginInput) {
         emailLoginInput.addEventListener('keypress', e => {
@@ -516,7 +562,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // رفع الصورة الشخصية
     const uploadBox = document.getElementById('uploadBox');
     const fileInput = document.getElementById('profilePic');
     const previewContainer = document.getElementById('previewContainer');
@@ -537,7 +582,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ===== تصدير الدوال =====
 window.handleEmailLogin = handleEmailLogin;
 window.handleProviderLogin = handleProviderLogin;
 window.goToStep3 = goToStep3;

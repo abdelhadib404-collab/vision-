@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
+    <title>Vision+ | التخصص</title>
+    <style>
+        .category-section {
+            min-height: 100vh;
+            background: linear-gradient(145deg, #0b1a1f, #1f3a42);
+            padding: 120px 40px 60px;
+        }
+        .category-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 30px;
+            padding: 40px;
+        }
+        .category-container h1 {
+            color: #1e2b2f;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .category-container .subtitle {
+            color: #5a6f73;
+            font-weight: 400;
+            margin-bottom: 30px;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #b0e0e6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-btn:hover { color: #1e2b2f; }
+
+        .freelancers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+        .freelancer-card {
+            background: #f4f9fa;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            transition: 0.3s;
+            cursor: pointer;
+            text-align: center;
+            padding: 20px;
+            border: 1px solid #e8eeef;
+            position: relative;
+        }
+        .freelancer-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            border-color: #b0e0e6;
+        }
+        .freelancer-card img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #b0e0e6;
+            margin-bottom: 10px;
+        }
+        .freelancer-card .name {
+            font-weight: 700;
+            color: #1e2b2f;
+            font-size: 1.1em;
+        }
+        .freelancer-card .category {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+        }
+        .freelancer-card .stats {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #5a6f73;
+        }
+        .freelancer-card .stats span i {
+            margin-right: 4px;
+        }
+        .freelancer-card .rank {
+            display: inline-block;
+            background: #b0e0e6;
+            color: #1e2b2f;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            line-height: 26px;
+            font-weight: 800;
+            font-size: 0.75em;
+            margin-bottom: 8px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #5a6f73;
+            width: 100%;
+        }
+        .empty-state i {
+            font-size: 4em;
+            color: #b0e0e6;
+            margin-bottom: 20px;
+            display: block;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #b0e0e6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 40px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .header .nav {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+        .header-user img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #b0e0e6;
+        }
+        .header-user .username {
+            color: #d4e9ed;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        @media (max-width: 767px) {
+            .header-user .username { display: none; }
+        }
+        .user-dropdown {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            min-width: 160px;
+            display: none;
+            overflow: hidden;
+            z-index: 1000;
+        }
+        .user-dropdown.show { display: block; }
+        .user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 18px;
+            color: #1e2b2f;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9em;
+            border-bottom: 1px solid #f0f0f0;
+            transition: 0.2s;
+        }
+        .user-dropdown a:hover { background: #f4f9fa; }
+        .user-dropdown a:last-child { border-bottom: none; color: #ff6b6b; }
+        .user-dropdown a i { width: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="index.html" class="logo">VISION+</a>
+        <nav class="nav">
+            <a href="index.html">الرئيسية</a>
+            <a href="yourpage.html">حسابي</a>
+            <a href="admin.html" style="color:#ff6b6b;">الإدارة</a>
+            <div class="header-user" id="header-user" style="display:none;" onclick="toggleDropdown(event)">
+                <img id="header-avatar" src="img/default-avatar.jpg" alt="avatar" />
+                <span class="username" id="header-username">مستخدم</span>
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="yourpage.html"><i class="fas fa-user-edit"></i> حسابي</a>
+                    <a href="#" onclick="event.stopPropagation(); logoutUser();"><i class="fas fa-sign-out-alt"></i> تسجيل خروج</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <section class="category-section" id="category">
+        <div class="category-container">
+            <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> العودة للرئيسية</a>
+            <h1 id="category-title">التخصص</h1>
+            <p class="subtitle" id="category-subtitle">الموهوبون في هذا التخصص</p>
+            <div id="freelancers-container">
+                <div class="loader"></div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <h3>عن المنصة</h3>
+                <p>Vision+ منصة تجمع بين الموهوبين والعملاء</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>جميع الحقوق محفوظة © 2026 Vision+</p>
+        </div>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="common.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            document.getElementById('user-dropdown').classList.toggle('show');
+        }
+        document.addEventListener('click', function() {
+            document.getElementById('user-dropdown').classList.remove('show');
+        });
+
+        function updateHeaderUI() {
+            const user = getCurrentUser();
+            const headerUser = document.getElementById('header-user');
+            if (user) {
+                headerUser.style.display = 'flex';
+                document.getElementById('header-avatar').src = user.photoURL || 'img/default-avatar.jpg';
+                document.getElementById('header-username').textContent = user.displayName || 'مستخدم';
+            } else {
+                headerUser.style.display = 'none';
+            }
+        }
+
+        function viewProfile(uid) {
+            window.location.href = `profile.html?uid=${uid}`;
+        }
+
+        async function loadCategory() {
+            const params = new URLSearchParams(window.location.search);
+            const categoryId = params.get('cat');
+            
+            if (!categoryId) {
+                document.getElementById('freelancers-container').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>لم يتم تحديد التخصص</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                // تحميل معلومات التخصص
+                const categories = await loadFromFirebase('categories');
+                const cat = categories ? Object.values(categories).find(c => c.id === categoryId) : null;
+                const catName = cat ? cat.name : categoryId;
+                
+                document.getElementById('category-title').textContent = `📂 ${catName}`;
+                document.getElementById('category-subtitle').textContent = `الموهوبون في مجال ${catName}`;
+
+                // تحميل الموهوبين
+                const users = await loadFromFirebase('users');
+                const container = document.getElementById('freelancers-container');
+                
+                if (!users) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>لا يوجد موهوبين في ${catName}</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let freelancers = Object.values(users).filter(u => 
+                    u.status === 'approved' && u.categoryId === categoryId
+                );
+                
+                if (freelancers.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>لا يوجد موهوبين في ${catName} حالياً</p>
+                            <p style="font-weight:400; margin-top:10px;">كن الأول! <a href="yourpage.html" style="color:#b0e0e6;">سجل الآن</a></p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // ترتيب حسب المشاهدات
+                freelancers.sort((a, b) => (b.views || 0) - (a.views || 0));
+                
+                let html = `<div class="freelancers-grid">`;
+                freelancers.forEach((f, index) => {
+                    html += `
+                        <div class="freelancer-card" onclick="viewProfile('${f.uid}')">
+                            <div class="rank">#${index + 1}</div>
+                            <img src="${f.profilePic || 'img/default-avatar.jpg'}" alt="${f.username}" />
+                            <div class="name">${f.username || 'غير معروف'}</div>
+                            <div class="category">${f.categoryId || 'لا يوجد تخصص'}</div>
+                            <div class="stats">
+                                <span><i class="fas fa-eye"></i> ${f.views || 0}</span>
+                                <span><i class="fas fa-heart" style="color:#ff6b6b;"></i> ${f.likes || 0}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading category:', error);
+                document.getElementById('freelancers-container').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle" style="color:#ff6b6b;"></i>
+                        <p>❌ حدث خطأ في تحميل الموهوبين</p>
+                    </div>
+                `;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateHeaderUI();
+            loadCategory();
+            
+            const user = getCurrentUser();
+            if (user) {
+                updateHeaderUI();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -12,7 +12,6 @@ const firebaseConfig = {
     appId: "1:817634922019:web:7154cfbe04d029e5d7eb96"
 };
 
-// تهيئة Firebase
 if (typeof firebase !== 'undefined') {
     if (!firebase.apps || !firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
@@ -23,7 +22,6 @@ if (typeof firebase !== 'undefined') {
 const db = firebase.database();
 const vpAuth = firebase.auth();
 
-// ===== دوال مساعدة =====
 async function loadFromFirebase(path) {
     try {
         const snapshot = await db.ref(path).once('value');
@@ -50,17 +48,6 @@ async function updateToFirebase(path, value) {
         return true;
     } catch (error) {
         console.error('Firebase update error:', error);
-        throw error;
-    }
-}
-
-async function pushToFirebase(path, value) {
-    try {
-        const ref = db.ref(path).push();
-        await ref.set(value);
-        return ref.key;
-    } catch (error) {
-        console.error('Firebase push error:', error);
         throw error;
     }
 }
