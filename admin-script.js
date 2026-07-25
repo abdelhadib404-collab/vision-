@@ -1,43 +1,40 @@
 // =====================================================
-// admin-script.js — لوحة تحكم Vision+ (معدل)
+// admin-script.js - الإصدار المصلح
 // =====================================================
 
 const DEFAULT_ADMIN_PASSWORD = 'admin123';
-let allUsers = {};
-let allCategories = {};
-let emailConfig = null;
-
-// ===== تحميل إعدادات البريد =====
-async function loadEmailConfig() {
-    try {
-        emailConfig = await loadFromFirebase('email_config');
-        if (emailConfig?.public_key) {
-            emailjs.init(emailConfig.public_key);
-        }
-    } catch (error) {
-        console.error('Error loading email config:', error);
-    }
-}
 
 // ===== تسجيل دخول الإدارة =====
 async function loginAdmin() {
-    const input = document.getElementById('admin-password').value;
+    const input = document.getElementById('admin-password');
     const errorEl = document.getElementById('login-error');
-
+    
+    if (!input) {
+        console.error('❌ حقل كلمة المرور غير موجود');
+        return;
+    }
+    
+    const password = input.value.trim();
+    
+    if (!password) {
+        errorEl.textContent = '❌ يرجى إدخال كلمة المرور';
+        return;
+    }
+    
     let realPassword = DEFAULT_ADMIN_PASSWORD;
     try {
         const stored = await loadFromFirebase('admin_settings/password');
         if (stored) realPassword = stored;
-    } catch (error) {
-        console.error('Error loading admin password:', error);
+    } catch (e) {
+        console.log('Using default password');
     }
-
-    if (input === realPassword) {
+    
+    if (password === realPassword) {
         sessionStorage.setItem('vp_admin_logged_in', 'true');
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-dashboard').style.display = 'block';
         loadAdminData();
-        loadEmailConfig();
+        showNotification('✅ مرحباً بك في لوحة التحكم', 'success');
     } else {
         errorEl.textContent = '❌ كلمة المرور غير صحيحة';
     }
@@ -47,8 +44,8 @@ async function loginAdmin() {
 function switchTab(tab) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
-
-    // العثور على الزر النشط
+    
+    // العثور على الزر المناسب
     const buttons = document.querySelectorAll('.admin-tab');
     for (const btn of buttons) {
         if (btn.textContent.includes(tab) || btn.dataset.tab === tab) {
@@ -57,8 +54,9 @@ function switchTab(tab) {
         }
     }
     
-    document.getElementById(`panel-${tab}`).classList.add('active');
-
+    const panel = document.getElementById(`panel-${tab}`);
+    if (panel) panel.classList.add('active');
+    
     if (tab === 'categories') loadCategoriesAdmin();
     if (tab === 'texts') loadTexts();
     if (tab === 'payments') loadPaymentMethods();
@@ -67,20 +65,18 @@ function switchTab(tab) {
     if (tab === 'colors') loadColors();
 }
 
-// ===== تحميل كل بيانات الإدارة =====
+// ===== تحميل بيانات الإدارة =====
 async function loadAdminData() {
     try {
-        const users = await loadFromFirebase('users');
-        allUsers = users || {};
-
-        const list = Object.values(allUsers);
+        const users = await loadFromFirebase('users') || {};
+        const list = Object.values(users);
         const pending = list.filter(u => u.status === 'pending');
         const approved = list.filter(u => u.status === 'approved');
-
+        
         document.getElementById('stat-total').textContent = list.length;
         document.getElementById('stat-pending').textContent = pending.length;
         document.getElementById('stat-approved').textContent = approved.length;
-
+        
         renderPendingTable(pending);
         renderApprovedTable(approved);
     } catch (error) {
@@ -91,6 +87,8 @@ async function loadAdminData() {
 
 function renderPendingTable(pending) {
     const tbody = document.getElementById('pending-table-body');
+    if (!tbody) return;
+    
     if (pending.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">لا توجد طلبات قيد الانتظار</td></tr>';
         return;
@@ -120,6 +118,8 @@ function renderPendingTable(pending) {
 
 function renderApprovedTable(approved) {
     const tbody = document.getElementById('approved-table-body');
+    if (!tbody) return;
+    
     if (approved.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">لا يوجد مستخدمون مفعّلون</td></tr>';
         return;
@@ -141,56 +141,47 @@ function renderApprovedTable(approved) {
     `).join('');
 }
 
-// ===== قبول / رفض / حذف مستخدم =====
+// ===== قبول / رفض / حذف =====
 async function approveUser(uid) {
     try {
-        const user = allUsers[uid];
-        if (user && user.usernameKey) {
-            await saveToFirebase(`usernames/${user.usernameKey}`, uid);
-        }
         await saveToFirebase(`users/${uid}/status`, 'approved');
-        // إضافة تاريخ الانضمام إذا لم يكن موجوداً
-        if (!user.joinedDate) {
+        if (!await loadFromFirebase(`users/${uid}/joinedDate`)) {
             await saveToFirebase(`users/${uid}/joinedDate`, new Date().toLocaleDateString('ar-DZ'));
         }
-        showNotification('✅ تم قبول الطلب، أصبح المستخدم ظاهراً في صفحة تخصصه', 'success');
+        showNotification('✅ تم قبول الطلب', 'success');
         loadAdminData();
     } catch (error) {
-        console.error('Error approving user:', error);
-        showNotification('❌ حدث خطأ أثناء القبول', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
 async function rejectUser(uid) {
-    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟ سيتم تحرير اسم المستخدم لاستخدامه من جديد.')) return;
+    if (!confirm('هل أنت متأكد؟')) return;
     try {
-        const user = allUsers[uid];
+        const user = await loadFromFirebase(`users/${uid}`);
         await saveToFirebase(`users/${uid}/status`, 'rejected');
-        if (user && user.usernameKey) {
+        if (user?.usernameKey) {
             await db.ref(`usernames/${user.usernameKey}`).remove();
         }
-        showNotification('✅ تم رفض الطلب', 'success');
+        showNotification('✅ تم الرفض', 'success');
         loadAdminData();
     } catch (error) {
-        console.error('Error rejecting user:', error);
-        showNotification('❌ حدث خطأ أثناء الرفض', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
 async function deleteUser(uid) {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
+    if (!confirm('حذف المستخدم نهائياً؟')) return;
     try {
-        const user = allUsers[uid];
-        if (user && user.usernameKey) {
+        const user = await loadFromFirebase(`users/${uid}`);
+        if (user?.usernameKey) {
             await db.ref(`usernames/${user.usernameKey}`).remove();
         }
         await db.ref(`users/${uid}`).remove();
-        await db.ref(`likes/${uid}`).remove();
-        showNotification('✅ تم حذف المستخدم', 'success');
+        showNotification('✅ تم الحذف', 'success');
         loadAdminData();
     } catch (error) {
-        console.error('Error deleting user:', error);
-        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
@@ -201,11 +192,11 @@ function viewUser(uid) {
 // ===== إدارة التخصصات =====
 async function loadCategoriesAdmin() {
     try {
-        const categories = await loadFromFirebase('categories');
-        allCategories = categories || {};
+        const categories = await loadFromFirebase('categories') || {};
         const container = document.getElementById('categories-list');
-
-        const entries = Object.values(allCategories);
+        if (!container) return;
+        
+        const entries = Object.values(categories);
         if (entries.length === 0) {
             container.innerHTML = '<p style="color:#5a6f73;">لا توجد تخصصات بعد</p>';
             return;
@@ -242,8 +233,7 @@ async function addCategory() {
         showNotification('✅ تمت إضافة التخصص', 'success');
         loadCategoriesAdmin();
     } catch (error) {
-        console.error('Error adding category:', error);
-        showNotification('❌ حدث خطأ أثناء الإضافة', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
@@ -251,15 +241,14 @@ async function deleteCategory(id) {
     if (!confirm('حذف هذا التخصص؟')) return;
     try {
         await db.ref(`categories/${id}`).remove();
-        showNotification('✅ تم حذف التخصص', 'success');
+        showNotification('✅ تم الحذف', 'success');
         loadCategoriesAdmin();
     } catch (error) {
-        console.error('Error deleting category:', error);
-        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== إدارة النصوص =====
+// ===== باقي الدوال =====
 async function loadTexts() {
     try {
         const texts = await loadFromFirebase('site_texts');
@@ -289,17 +278,16 @@ async function saveTexts() {
         await saveToFirebase('site_texts', texts);
         showNotification('✅ تم حفظ النصوص', 'success');
     } catch (error) {
-        console.error('Error saving texts:', error);
-        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== إدارة طرق الدفع =====
 async function loadPaymentMethods() {
     try {
         const methods = await loadFromFirebase('payment_methods');
         const container = document.getElementById('payment-methods-list');
-
+        if (!container) return;
+        
         if (!methods || Object.keys(methods).length === 0) {
             container.innerHTML = '<p style="color:#5a6f73;">لا توجد طرق دفع مضافة بعد</p>';
             return;
@@ -336,8 +324,7 @@ async function addPaymentMethod() {
         showNotification('✅ تمت إضافة طريقة الدفع', 'success');
         loadPaymentMethods();
     } catch (error) {
-        console.error('Error adding payment method:', error);
-        showNotification('❌ حدث خطأ أثناء الإضافة', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
@@ -346,7 +333,6 @@ async function updatePaymentMethodField(key, field, value) {
         await saveToFirebase(`payment_methods/${key}/${field}`, value);
         showNotification('✅ تم التحديث', 'success');
     } catch (error) {
-        console.error('Error updating payment method:', error);
         showNotification('❌ حدث خطأ', 'error');
     }
 }
@@ -358,12 +344,11 @@ async function deletePaymentMethod(key) {
         showNotification('✅ تم الحذف', 'success');
         loadPaymentMethods();
     } catch (error) {
-        console.error('Error deleting payment method:', error);
-        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== إعدادات EmailJS =====
+// ===== إعدادات البريد و Discord والألوان =====
 async function loadEmailConfigAdmin() {
     try {
         const cfg = await loadFromFirebase('email_config');
@@ -385,17 +370,13 @@ async function saveEmailConfig() {
     };
     try {
         await saveToFirebase('email_config', cfg);
-        if (cfg.public_key) {
-            emailjs.init(cfg.public_key);
-        }
         showNotification('✅ تم حفظ إعدادات البريد', 'success');
     } catch (error) {
-        console.error('Error saving email config:', error);
-        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== إعدادات Discord OAuth =====async function loadDiscordConfig() {
+async function loadDiscordConfig() {
     try {
         const cfg = await loadFromFirebase('site_settings/discord_oauth');
         if (cfg) {
@@ -418,12 +399,10 @@ async function saveDiscordConfig() {
         await saveToFirebase('site_settings/discord_oauth', cfg);
         showNotification('✅ تم حفظ إعدادات Discord', 'success');
     } catch (error) {
-        console.error('Error saving discord config:', error);
-        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== إدارة الألوان =====
 async function loadColors() {
     try {
         const colors = await loadFromFirebase('site_settings/colors');
@@ -453,11 +432,10 @@ async function saveColors() {
     };
     try {
         await saveToFirebase('site_settings/colors', colors);
-        showNotification('✅ تم حفظ الألوان وتطبيقها على الموقع', 'success');
+        showNotification('✅ تم حفظ الألوان', 'success');
         applySiteColors();
     } catch (error) {
-        console.error('Error saving colors:', error);
-        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+        showNotification('❌ حدث خطأ', 'error');
     }
 }
 
@@ -465,17 +443,16 @@ async function resetColors() {
     if (!confirm('استعادة الألوان الافتراضية؟')) return;
     try {
         await db.ref('site_settings/colors').remove();
-        showNotification('✅ تمت استعادة الألوان الافتراضية', 'success');
+        showNotification('✅ تمت الاستعادة', 'success');
         location.reload();
     } catch (error) {
-        console.error('Error resetting colors:', error);
         showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== أداة مساعدة =====
+// ===== أدوات مساعدة =====
 function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
+    if (!str) return '';
     return String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -486,13 +463,14 @@ function escapeHtml(str) {
 
 // ===== عند تحميل الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
+    // التحقق من تسجيل الدخول
     if (sessionStorage.getItem('vp_admin_logged_in') === 'true') {
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-dashboard').style.display = 'block';
         loadAdminData();
-        loadEmailConfig();
     }
 
+    // دخول بالضغط على Enter
     const pwInput = document.getElementById('admin-password');
     if (pwInput) {
         pwInput.addEventListener('keypress', function(e) {
@@ -500,3 +478,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// تصدير الدوال
+window.loginAdmin = loginAdmin;
+window.switchTab = switchTab;
+window.loadAdminData = loadAdminData;
+window.approveUser = approveUser;
+window.rejectUser = rejectUser;
+window.deleteUser = deleteUser;
+window.viewUser = viewUser;
+window.addCategory = addCategory;
+window.deleteCategory = deleteCategory;
+window.saveTexts = saveTexts;
+window.addPaymentMethod = addPaymentMethod;
+window.deletePaymentMethod = deletePaymentMethod;
+window.updatePaymentMethodField = updatePaymentMethodField;
+window.saveEmailConfig = saveEmailConfig;
+window.saveDiscordConfig = saveDiscordConfig;
+window.saveColors = saveColors;
+window.resetColors = resetColors;
+window.loadCategoriesAdmin = loadCategoriesAdmin;
+window.loadTexts = loadTexts;
+window.loadPaymentMethods = loadPaymentMethods;
+window.loadEmailConfigAdmin = loadEmailConfigAdmin;
+window.loadDiscordConfig = loadDiscordConfig;
+window.loadColors = loadColors;

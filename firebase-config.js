@@ -1,8 +1,8 @@
 // =====================================================
-// firebase-config.js - الإصدار المصلح بالكامل
+// firebase-config.js - الإصدار النهائي
 // =====================================================
 
-// 🔑 استخدم المفاتيح من Firebase Console
+// ⚠️ استبدل apiKey بالمفتاح الحقيقي من Firebase Console
 const firebaseConfig = {
     apiKey: "AIzaSyD528qS0sFVsIIX4wRFZtWQwCkkiV7M-YY",
     authDomain: "vision-aa7a0.firebaseapp.com",
@@ -10,27 +10,23 @@ const firebaseConfig = {
     projectId: "vision-aa7a0",
     storageBucket: "vision-aa7a0.firebasestorage.app",
     messagingSenderId: "817634922019",
-    appId: "1:817634922019:web:7154cfbe04d029e5d7eb96",
-    measurementId: "G-S1HC513E8D"
+    appId: "1:817634922019:web:7154cfbe04d029e5d7eb96"
 };
 
-// ✅ تهيئة Firebase بشكل صحيح
-if (typeof firebase !== 'undefined') {
-    if (!firebase.apps || !firebase.apps.length) {
+// تهيئة Firebase
+try {
+    if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
-        console.log('✅ Firebase initialized successfully');
-    } else {
-        console.log('✅ Firebase already initialized');
+        console.log('✅ Firebase initialized');
     }
-} else {
-    console.error('❌ Firebase SDK not loaded!');
+} catch (e) {
+    console.error('❌ Firebase init error:', e);
 }
 
-// ✅ المصادقة وقاعدة البيانات
 const db = firebase.database();
 const vpAuth = firebase.auth();
 
-// ===== دوال القراءة والكتابة =====
+// ===== دوال مساعدة =====
 async function loadFromFirebase(path) {
     try {
         const snapshot = await db.ref(path).once('value');
@@ -61,17 +57,6 @@ async function updateToFirebase(path, value) {
     }
 }
 
-async function pushToFirebase(path, value) {
-    try {
-        const ref = db.ref(path).push();
-        await ref.set(value);
-        return ref.key;
-    } catch (error) {
-        console.error('Firebase push error:', error);
-        throw error;
-    }
-}
-
 function slugifyKey(text) {
     return String(text).trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g, '_');
 }
@@ -84,8 +69,5 @@ function showNotification(message, type = 'info') {
     toast.className = `toast-notification ${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
-
     setTimeout(() => toast.remove(), 4000);
 }
-
-console.log('✅ firebase-config.js loaded');
