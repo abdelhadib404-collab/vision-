@@ -465,3 +465,68 @@ section {
     background: var(--color-bg-light); border-radius: 15px; padding: 14px 18px; margin-bottom: 10px;
 }
 .payment-method-row input { padding: 10px 16px; border-radius: 30px; border: 2px solid #dce8ea; font-weight: 400; flex: 1; min-width: 140px; }
+
+/* أضف هذه الإضافات في نهاية style.css */
+
+/* زر حذف العمل */
+.admin-btn.delete {
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.admin-btn.delete:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+/* صف طريقة الدفع في الإدارة */
+.payment-method-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    background: #f4f9fa;
+    border-radius: 15px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+.payment-method-row input {
+    padding: 10px 16px;
+    border-radius: 30px;
+    border: 2px solid #dce8ea;
+    font-weight: 400;
+    flex: 1;
+    min-width: 140px;
+}
+
+/* إضافات للإشعارات */
+.toast-notification {
+    position: fixed;
+    top: 100px;
+    left: 30px;
+    z-index: 99999;
+    padding: 16px 24px;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 0.95em;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    animation: slideIn 0.4s ease, fadeOutToast 0.4s ease 3.6s forwards;
+    max-width: 320px;
+}
+.toast-notification.success { background: #4CAF50; }
+.toast-notification.error { background: #ff6b6b; }
+.toast-notification.info { background: #1e2b2f; }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(100px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeOutToast {
+    to { opacity: 0; transform: translateX(-100px); }
+}

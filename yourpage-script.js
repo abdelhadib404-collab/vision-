@@ -1,26 +1,19 @@
 // =====================================================
-// yourpage-script.js
+// yourpage-script.js — لوحة حسابي المتكاملة
 // =====================================================
 
-// ===== متغيرات عامة =====
-let currentUser = {
-    uid: null,
-    email: null,
-    displayName: null,
-    photoURL: null,
-    provider: null
-};
-let userData = {};
+let currentUser = null;
+let userData = null;
 let selectedCategoryId = null;
-let emailConfig = null; // يُحمّل ديناميكياً من Firebase (تعدّله الإدارة دون لمس الكود)
 let usernameIsAvailable = false;
 let usernameCheckTimer = null;
+let emailConfig = null;
 
-// ===== تحميل إعدادات EmailJS من Firebase وتهيئته =====
+// ===== تحميل إعدادات البريد =====
 async function initEmailJS() {
     try {
         emailConfig = await loadFromFirebase('email_config');
-        if (emailConfig && emailConfig.public_key) {
+        if (emailConfig?.public_key) {
             emailjs.init(emailConfig.public_key);
         }
     } catch (error) {
@@ -28,39 +21,79 @@ async function initEmailJS() {
     }
 }
 
-// ===== تسجيل الدخول الحقيقي =====
-async function authWithProvider(provider) {
-    document.getElementById('auth-buttons').style.display = 'none';
-    document.getElementById('auth-loading').style.display = 'flex';
+// ===== البحث عن مستخدم بالبريد الإلكتروني =====
+async function findUserByEmail(email) {
+    if (!email) return null;
+    try {
+        const users = await loadFromFirebase('users');
+        if (!users) return null;
+        const found = Object.values(users).find(u => u.email?.toLowerCase() === email.toLowerCase());
+        return found || null;
+    } catch (error) {
+        console.error('Error finding user by email:', error);
+        return null;
+    }
+}
 
-    const result = await authWithProviderReal(provider);
+// ===== تسجيل الدخول بالبريد فقط =====
+async function loginWithEmailOnly() {
+    const input = document.getElementById('email-login-input');
+    const hint = document.getElementById('email-login-hint');
+    const email = input.value.trim().toLowerCase();
 
-    // Discord يعيد توجيه المستخدم لصفحة Discord نفسها، فلن يصل نتيجة هنا مباشرة
-    if (provider === 'discord') return;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+        hint.textContent = '❌ بريد إلكتروني غير صحيح';
+        hint.className = 'field-hint bad';
+        return;
+    }
+    hint.textContent = '';
+    hint.className = 'field-hint';
 
-    document.getElementById('auth-loading').style.display = 'none';
-
-    if (!result) {
-        document.getElementById('auth-buttons').style.display = 'flex';
+    // البحث عن مستخدم موجود بهذا البريد
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+        // مستخدم موجود → نأخذ بياناته
+        const result = {
+            uid: existingUser.uid,
+            email: existingUser.email,
+            displayName: existingUser.displayName || email.split('@')[0],
+            photoURL: existingUser.profilePic || 'img/default-avatar.jpg',
+            provider: 'email'
+        };
+        setLoggedInUser(result);
         return;
     }
 
+    // مستخدم جديد
+    const namePart = email.split('@')[0];
+    const result = {
+        uid: `email_${slugifyKey(email)}`,
+        email: email,
+        displayName: namePart,
+        photoURL: 'img/default-avatar.jpg',
+        provider: 'email'
+    };
     setLoggedInUser(result);
 }
 
+// ===== تعيين المستخدم الحالي =====
 function setLoggedInUser(result) {
-    currentUser.uid = result.uid;
-    currentUser.email = result.email;
-    currentUser.displayName = result.displayName;
-    currentUser.photoURL = result.photoURL || 'img/default-avatar.jpg';
-    currentUser.provider = result.provider;
+    currentUser = {
+        uid: result.uid,
+        email: result.email,
+        displayName: result.displayName,
+        photoURL: result.photoURL || 'img/default-avatar.jpg',
+        provider: result.provider
+    };
 
+    // تحديث الواجهة
     document.getElementById('auth-profile-pic').src = currentUser.photoURL;
     document.getElementById('auth-username').textContent = currentUser.displayName;
     document.getElementById('auth-email').textContent = currentUser.email || 'لا يوجد بريد ظاهر';
     document.getElementById('auth-user-info').style.display = 'block';
-
-    // إخفاء طرق الدخول بعد نجاح تسجيل الدخول
+    
+    // إخفاء خيارات الدخول
     const emailBox = document.getElementById('email-login-box');
     const divider = document.getElementById('auth-or-divider');
     const authButtons = document.getElementById('auth-buttons');
@@ -72,57 +105,38 @@ function setLoggedInUser(result) {
     checkUserStatus();
 }
 
-// ===== تسجيل الدخول المباشر بالبريد الإلكتروني فقط (بديل عند تعذّر Google/GitHub/Discord) =====
-function loginWithEmailOnly() {
-    const input = document.getElementById('email-login-input');
-    const hint = document.getElementById('email-login-hint');
-    const email = input.value.trim().toLowerCase();
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-        hint.textContent = '❌ يرجى إدخال بريد إلكتروني صحيح';
-        hint.className = 'field-hint bad';
-        return;
-    }
-    hint.textContent = '';
-    hint.className = 'field-hint';
-
-    const namePart = email.split('@')[0];
-    const result = {
-        uid: `email_${slugifyKey(email)}`,
-        email: email,
-        displayName: namePart,
-        photoURL: 'img/default-avatar.jpg',
-        provider: 'email'
-    };
-
-    setLoggedInUser(result);
-}
-
 // ===== التحقق من حالة المستخدم =====
 async function checkUserStatus() {
     try {
         const user = await loadFromFirebase(`users/${currentUser.uid}`);
         if (user) {
+            userData = user;
             if (user.status === 'approved') {
-                document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-                document.getElementById('step-dashboard').style.display = 'block';
-                loadDashboard(user);
+                showDashboard(user);
                 return;
             } else if (user.status === 'pending') {
-                document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-                document.getElementById('step-waiting').style.display = 'block';
+                showWaitingScreen();
                 return;
             } else if (user.status === 'rejected') {
                 showNotification('ℹ️ تم رفض طلبك السابق، يمكنك التسجيل من جديد', 'info');
             }
         }
+        // مستخدم جديد أو مرفوض → نعرض خطوة التسجيل
+        goToStep2();
     } catch (error) {
         console.error('Error checking user:', error);
+        goToStep2();
     }
 }
 
-// ===== تحميل الكاتيغوريس =====
+// ===== الانتقال للخطوة 2 =====
+function goToStep2() {
+    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+    document.getElementById('step-profile').style.display = 'block';
+    loadCategories();
+}
+
+// ===== تحميل التخصصات =====
 async function loadCategories() {
     try {
         const categories = await loadFromFirebase('categories');
@@ -130,7 +144,7 @@ async function loadCategories() {
         grid.innerHTML = '';
         
         if (!categories) {
-            grid.innerHTML = '<p style="color:#ff6b6b;">لا توجد تخصصات</p>';
+            grid.innerHTML = '<p style="color:#ff6b6b;">لا توجد تخصصات حالياً</p>';
             return;
         }
         
@@ -154,22 +168,16 @@ async function loadCategories() {
     }
 }
 
-// ===== التحقق الفوري من توفر اسم المستخدم =====
+// ===== التحقق من توفر اسم المستخدم =====
 async function checkUsernameAvailability() {
     const usernameInput = document.getElementById('username');
     const hint = document.getElementById('username-hint');
     const raw = usernameInput.value.trim();
-
     usernameIsAvailable = false;
 
-    if (!raw) {
-        hint.textContent = '';
+    if (!raw || raw.length < 3) {
+        hint.textContent = raw ? '❌ اسم قصير جداً (3 أحرف على الأقل)' : '';
         hint.className = 'field-hint';
-        return;
-    }
-    if (raw.length < 3) {
-        hint.textContent = '❌ اسم المستخدم قصير جداً (3 أحرف على الأقل)';
-        hint.className = 'field-hint bad';
         return;
     }
 
@@ -180,11 +188,11 @@ async function checkUsernameAvailability() {
     try {
         const existing = await loadFromFirebase(`usernames/${key}`);
         if (existing && existing !== currentUser.uid) {
-            hint.textContent = '❌ اسم المستخدم هذا مستخدم بالفعل، اختر اسماً آخر';
+            hint.textContent = '❌ هذا الاسم مستخدم بالفعل';
             hint.className = 'field-hint bad';
             usernameIsAvailable = false;
         } else {
-            hint.textContent = '✅ اسم المستخدم متاح';
+            hint.textContent = '✅ اسم متاح';
             hint.className = 'field-hint ok';
             usernameIsAvailable = true;
         }
@@ -194,40 +202,24 @@ async function checkUsernameAvailability() {
     }
 }
 
-// ===== الانتقال للخطوة 2 =====
-function goToStep2() {
-    if (!currentUser.uid) {
-        showNotification('❌ يرجى تسجيل الدخول أولاً', 'error');
-        return;
-    }
-    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-    document.getElementById('step-profile').style.display = 'block';
-    loadCategories();
-}
-
-// ===== الانتقال للخطوة 3 =====
+// ===== الانتقال للخطوة 3 (الدفع) =====
 async function goToStep3() {
     const username = document.getElementById('username').value.trim();
     const phone = document.getElementById('real-phone').value.trim();
 
-    if (!username) {
-        showNotification('❌ يرجى إدخال اسم المستخدم', 'error');
-        return;
-    }
-    if (username.length < 3) {
-        showNotification('❌ اسم المستخدم قصير جداً', 'error');
+    if (!username || username.length < 3) {
+        showNotification('❌ يرجى إدخال اسم مستخدم صحيح', 'error');
         return;
     }
 
-    // تأكيد نهائي أن الاسم غير مستخدم (حماية إضافية قبل المتابعة)
     await checkUsernameAvailability();
     if (!usernameIsAvailable) {
-        showNotification('❌ اسم المستخدم مستخدم من قبل، يرجى اختيار اسم آخر', 'error');
+        showNotification('❌ اسم المستخدم مستخدم، اختر اسماً آخر', 'error');
         return;
     }
 
     if (!phone || phone.replace(/\D/g, '').length < 8) {
-        showNotification('❌ يرجى إدخال رقم هاتفك الحقيقي بشكل صحيح', 'error');
+        showNotification('❌ يرجى إدخال رقم هاتف صحيح', 'error');
         return;
     }
 
@@ -242,77 +234,58 @@ async function goToStep3() {
         return;
     }
     
-    userData.username = username;
-    userData.usernameKey = slugifyKey(username);
-    userData.phone = phone;
-    userData.categoryId = selectedCategoryId;
-    userData.profilePic = fileInput.files[0];
-    
-    const bannerInput = document.getElementById('bannerPic');
-    if (bannerInput.files && bannerInput.files[0]) {
-        userData.bannerPic = bannerInput.files[0];
-    }
+    // حفظ البيانات المؤقتة
+    window._tempUserData = {
+        username: username,
+        usernameKey: slugifyKey(username),
+        phone: phone,
+        categoryId: selectedCategoryId,
+        profilePic: fileInput.files[0],
+        bannerPic: document.getElementById('bannerPic').files?.[0] || null
+    };
     
     document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
     document.getElementById('step-payment').style.display = 'block';
+    loadPaymentMethods();
 }
 
-// ===== عرض كود الدفع (طرق الدفع تُدار من لوحة الإدارة) =====
-async function showPaymentCode(method) {
-    let codes = null;
+// ===== تحميل طرق الدفع =====
+async function loadPaymentMethods() {
     try {
-        codes = await loadFromFirebase('payment_methods');
+        const methods = await loadFromFirebase('payment_methods');
+        const container = document.getElementById('payment-methods-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        const defaultMethods = ['ccp', 'redotpay', 'baridimob'];
+        const labels = { ccp: 'CCP', redotpay: 'Redotpay', baridimob: 'Baridimob' };
+        
+        const methodKeys = methods ? Object.keys(methods) : defaultMethods;
+        methodKeys.forEach(key => {
+            const btn = document.createElement('button');
+            btn.className = 'payment-btn';
+            const label = methods?.[key]?.label || labels[key] || key;
+            btn.innerHTML = `<i class="fas fa-wallet"></i> ${label}`;
+            btn.onclick = () => showPaymentCode(key);
+            container.appendChild(btn);
+        });
     } catch (error) {
         console.error('Error loading payment methods:', error);
     }
-
-    const fallback = {
-        ccp: 'CCP: 1234 5678 9012 3456',
-        redotpay: 'Redotpay ID: RP-98765-4321',
-        baridimob: 'Baridimob: +213 555 123 456'
-    };
-
-    const value = (codes && codes[method] && codes[method].value) || fallback[method] || '';
-
-    const container = document.getElementById('payment-code-container');
-    document.getElementById('payment-code').textContent = value;
-    container.style.display = 'block';
-    userData.paymentMethod = method;
 }
 
-// ===== ✅ دالة إرسال الإيميل للمسؤول =====
-async function sendEmailToAdmin(userDataToSend) {
+// ===== عرض كود الدفع =====
+async function showPaymentCode(method) {
     try {
-        if (!emailConfig || !emailConfig.service_id || !emailConfig.template_id) {
-            console.warn('Email config not set from admin panel, skipping email.');
-            return false;
-        }
-
-        const templateParams = {
-            username: userDataToSend.username || 'غير معروف',
-            email: userDataToSend.email || 'لا يوجد بريد',
-            phone: userDataToSend.phone || 'غير متوفر',
-            category: userDataToSend.categoryId || 'لا يوجد تخصص',
-            payment_method: userDataToSend.paymentMethod || 'غير محدد',
-            payment_source: userDataToSend.paymentSource || 'غير محدد',
-            payment_time: userDataToSend.paymentTime || 'غير محدد',
-            payment_note: `تم الإرسال في ${userDataToSend.paymentTime || 'غير محدد'} من: ${userDataToSend.paymentSource || 'غير محدد'}`,
-            status: 'قيد الانتظار',
-            created_at: new Date().toLocaleString('ar-DZ'),
-            profile_link: `${window.location.origin}/profile.html?uid=${userDataToSend.uid}`,
-            admin_link: `${window.location.origin}/admin.html`
-        };
+        const methods = await loadFromFirebase('payment_methods');
+        const value = methods?.[method]?.value || 'يرجى التواصل مع الإدارة';
         
-        const response = await emailjs.send(
-            emailConfig.service_id,
-            emailConfig.template_id,
-            templateParams
-        );
-        console.log('✅ Email sent to admin:', response);
-        return true;
+        const container = document.getElementById('payment-code-container');
+        document.getElementById('payment-code').textContent = value;
+        container.style.display = 'block';
+        window._selectedPaymentMethod = method;
     } catch (error) {
-        console.error('❌ Email error:', error);
-        return false;
+        console.error('Error showing payment code:', error);
     }
 }
 
@@ -320,89 +293,217 @@ async function sendEmailToAdmin(userDataToSend) {
 async function confirmPayment() {
     const paymentSource = document.getElementById('payment-source').value.trim();
     if (!paymentSource) {
-        showNotification('❌ يرجى تحديد المحفظة/الحساب الذي أرسلت منه الدفع', 'error');
+        showNotification('❌ يرجى تحديد المحفظة التي أرسلت منها الدفع', 'error');
         return;
     }
-    userData.paymentSource = paymentSource;
-    userData.paymentTime = new Date().toLocaleString('ar-DZ');
+
+    const tempData = window._tempUserData;
+    if (!tempData) {
+        showNotification('❌ حدث خطأ، يرجى المحاولة من جديد', 'error');
+        return;
+    }
 
     const statusDiv = document.getElementById('payment-status');
-    statusDiv.innerHTML = `<p style="color: var(--color-primary);">⏳ جاري المعالجة...</p>`;
+    statusDiv.innerHTML = '<p style="color: var(--color-primary);">⏳ جاري تسجيل طلبك...</p>';
 
-    // حجز اسم المستخدم بشكل آمن (يمنع تعارض تسجيل متزامن لنفس الاسم)
-    const usernameRef = db.ref(`usernames/${userData.usernameKey}`);
+    // حجز اسم المستخدم
+    const usernameRef = db.ref(`usernames/${tempData.usernameKey}`);
     const txResult = await usernameRef.transaction(current => {
         if (current === null) return currentUser.uid;
-        return; // إلغاء العملية إن كان محجوزاً بالفعل
+        return;
     });
 
     if (!txResult.committed) {
-        statusDiv.innerHTML = `<p style="color:#ff6b6b;">❌ اسم المستخدم أصبح مستخدماً للتو، يرجى العودة واختيار اسم آخر</p>`;
+        statusDiv.innerHTML = '<p style="color:#ff6b6b;">❌ اسم المستخدم أصبح مستخدماً، يرجى العودة وتغييره</p>';
+        return;
+    }
+
+    // قراءة الصور كـ Base64
+    const profilePicData = await readFileAsDataURL(tempData.profilePic);
+    const bannerPicData = tempData.bannerPic ? await readFileAsDataURL(tempData.bannerPic) : '';
+
+    const userDataToSave = {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        displayName: currentUser.displayName,
+        provider: currentUser.provider,
+        username: tempData.username,
+        usernameKey: tempData.usernameKey,
+        phone: tempData.phone,
+        categoryId: tempData.categoryId,
+        profilePic: profilePicData,
+        bannerPic: bannerPicData,
+        paymentMethod: window._selectedPaymentMethod || 'غير محدد',
+        paymentSource: paymentSource,
+        paymentTime: new Date().toLocaleString('ar-DZ'),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        bio: '',
+        portfolioLink: '',
+        views: 0,
+        likes: 0,
+        works: []
+    };
+
+    // حفظ في Firebase
+    await saveToFirebase(`users/${currentUser.uid}`, userDataToSave);
+
+    // إرسال إيميل للمسؤول
+    await sendEmailToAdmin(userDataToSave);
+
+    statusDiv.innerHTML = `
+        <p style="color: #4CAF50;">✅ تم تسجيل طلبك بنجاح!</p>
+        <p style="color: var(--color-text-muted);">⏳ سيتم مراجعة طلبك خلال 1-40 ساعة</p>
+    `;
+
+    setTimeout(() => {
+        document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+        document.getElementById('step-waiting').style.display = 'block';
+        loadWaitingText();
+    }, 2000);
+}
+
+// ===== مساعد: قراءة ملف كـ Base64 =====
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// ===== إرسال إيميل للمسؤول =====
+async function sendEmailToAdmin(data) {
+    try {
+        if (!emailConfig?.service_id || !emailConfig?.template_id) {
+            console.warn('Email not configured');
+            return false;
+        }
+        const templateParams = {
+            username: data.username || 'غير معروف',
+            email: data.email || 'لا يوجد بريد',
+            phone: data.phone || 'غير متوفر',
+            category: data.categoryId || 'لا يوجد تخصص',
+            payment_method: data.paymentMethod || 'غير محدد',
+            payment_source: data.paymentSource || 'غير محدد',
+            payment_time: data.paymentTime || 'غير محدد',
+            status: 'قيد الانتظار',
+            created_at: new Date().toLocaleString('ar-DZ'),
+            profile_link: `${window.location.origin}/profile.html?uid=${data.uid}`,
+            admin_link: `${window.location.origin}/admin.html`
+        };
+        await emailjs.send(emailConfig.service_id, emailConfig.template_id, templateParams);
+        return true;
+    } catch (error) {
+        console.error('Email error:', error);
+        return false;
+    }
+}
+
+// ===== عرض لوحة التحكم =====
+function showDashboard(user) {
+    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+    document.getElementById('step-dashboard').style.display = 'block';
+    userData = user;
+    
+    document.getElementById('dash-profile-pic').src = user.profilePic || 'img/default-avatar.jpg';
+    document.getElementById('dash-username').textContent = user.username || user.displayName || '';
+    document.getElementById('dash-email').textContent = user.email || '';
+    document.getElementById('edit-bio').value = user.bio || '';
+    document.getElementById('edit-portfolio').value = user.portfolioLink || '';
+    document.getElementById('edit-phone').value = user.phone || '';
+    
+    loadUserWorks();
+    loadUserStats();
+}
+
+// ===== تحميل إحصائيات المستخدم =====
+async function loadUserStats() {
+    try {
+        const user = await loadFromFirebase(`users/${currentUser.uid}`);
+        if (user) {
+            document.getElementById('stat-views').textContent = user.views || 0;
+            document.getElementById('stat-likes').textContent = user.likes || 0;
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// ===== تحميل أعمال المستخدم =====
+async function loadUserWorks() {
+    try {
+        const user = await loadFromFirebase(`users/${currentUser.uid}`);
+        if (user?.works) {
+            const container = document.getElementById('works-container');
+            if (!container) return;
+            container.innerHTML = user.works.map((work, index) => `
+                <div class="work-item">
+                    ${work.image ? `<img src="${work.image}" alt="${work.title}" />` : ''}
+                    <div class="work-info">
+                        <h4>${work.title || 'بدون عنوان'}</h4>
+                        <p>${work.description || ''}</p>
+                        <button class="admin-btn delete" onclick="deleteWork(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading works:', error);
+    }
+}
+
+// ===== إضافة عمل جديد =====
+async function addWork() {
+    const title = document.getElementById('work-title').value.trim();
+    const description = document.getElementById('work-desc').value.trim();
+    const fileInput = document.getElementById('work-image');
+    
+    if (!title) {
+        showNotification('❌ يرجى إدخال عنوان للعمل', 'error');
         return;
     }
     
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const profilePicData = e.target.result;
-
-        const finishSave = async (bannerPicData) => {
-            const userDataToSave = {
-                uid: currentUser.uid,
-                email: currentUser.email,
-                displayName: currentUser.displayName,
-                provider: currentUser.provider,
-                username: userData.username,
-                usernameKey: userData.usernameKey,
-                phone: userData.phone,
-                categoryId: userData.categoryId,
-                profilePic: profilePicData,
-                bannerPic: bannerPicData || '',
-                paymentMethod: userData.paymentMethod,
-                paymentSource: userData.paymentSource,
-                paymentTime: userData.paymentTime,
-                status: 'pending',
-                createdAt: new Date().toISOString(),
-                bio: '',
-                portfolioLink: '',
-                views: 0
-            };
-
-            // ✅ إرسال إيميل للمسؤول
-            await sendEmailToAdmin(userDataToSave);
-
-            // حفظ في Firebase
-            await saveToFirebase(`users/${currentUser.uid}`, userDataToSave);
-
-            document.getElementById('payment-status').innerHTML = `
-                <p style="color: #4CAF50;">✅ تم تسجيل طلبك بنجاح!</p>
-                <p style="color: var(--color-text-muted); font-weight:400;">⏳ يرجى الانتظار من 1 إلى 40 ساعة لمراجعة طلبك</p>
-            `;
-
-            setTimeout(() => {
-                document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-                document.getElementById('step-waiting').style.display = 'block';
-            }, 2000);
-        };
-
-        if (userData.bannerPic) {
-            const bannerReader = new FileReader();
-            bannerReader.onload = (e2) => finishSave(e2.target.result);
-            bannerReader.readAsDataURL(userData.bannerPic);
-        } else {
-            finishSave('');
-        }
-    };
-    reader.readAsDataURL(userData.profilePic);
+    let imageData = '';
+    if (fileInput.files && fileInput.files[0]) {
+        imageData = await readFileAsDataURL(fileInput.files[0]);
+    }
+    
+    const newWork = { title, description, image: imageData, createdAt: new Date().toISOString() };
+    
+    try {
+        const user = await loadFromFirebase(`users/${currentUser.uid}`);
+        const works = user?.works || [];
+        works.push(newWork);
+        await saveToFirebase(`users/${currentUser.uid}/works`, works);
+        
+        document.getElementById('work-title').value = '';
+        document.getElementById('work-desc').value = '';
+        document.getElementById('work-image').value = '';
+        
+        showNotification('✅ تم إضافة العمل بنجاح!', 'success');
+        loadUserWorks();
+    } catch (error) {
+        showNotification('❌ حدث خطأ في إضافة العمل', 'error');
+    }
 }
 
-// ===== تحميل لوحة التحكم =====
-function loadDashboard(data) {
-    document.getElementById('dash-profile-pic').src = data.profilePic || 'img/default-avatar.jpg';
-    document.getElementById('dash-username').textContent = data.username || '';
-    document.getElementById('dash-email').textContent = data.email || '';
-    document.getElementById('edit-bio').value = data.bio || '';
-    document.getElementById('edit-portfolio').value = data.portfolioLink || '';
-    document.getElementById('edit-phone').value = data.phone || '';
+// ===== حذف عمل =====
+async function deleteWork(index) {
+    if (!confirm('هل أنت متأكد من حذف هذا العمل؟')) return;
+    try {
+        const user = await loadFromFirebase(`users/${currentUser.uid}`);
+        const works = user?.works || [];
+        works.splice(index, 1);
+        await saveToFirebase(`users/${currentUser.uid}/works`, works);
+        showNotification('✅ تم حذف العمل', 'success');
+        loadUserWorks();
+    } catch (error) {
+        showNotification('❌ حدث خطأ', 'error');
+    }
 }
 
 // ===== تحديث البورتفوليو =====
@@ -412,21 +513,29 @@ async function updatePortfolio() {
     const phone = document.getElementById('edit-phone').value.trim();
     
     try {
-        await saveToFirebase(`users/${currentUser.uid}/bio`, bio);
-        await saveToFirebase(`users/${currentUser.uid}/portfolioLink`, portfolioLink);
-        await saveToFirebase(`users/${currentUser.uid}/phone`, phone);
+        await updateToFirebase(`users/${currentUser.uid}`, {
+            bio: bio,
+            portfolioLink: portfolioLink,
+            phone: phone
+        });
         showNotification('✅ تم حفظ التغييرات بنجاح!', 'success');
     } catch (error) {
         showNotification('❌ حدث خطأ في الحفظ', 'error');
     }
 }
 
-// ===== رفع الصور =====
-// ===== تحميل نص رسالة الانتظار (قابل للتعديل من لوحة الإدارة) =====
+// ===== عرض شاشة الانتظار =====
+function showWaitingScreen() {
+    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+    document.getElementById('step-waiting').style.display = 'block';
+    loadWaitingText();
+}
+
+// ===== تحميل نص الانتظار =====
 async function loadWaitingText() {
     try {
         const texts = await loadFromFirebase('site_texts');
-        if (texts && texts.waiting_text) {
+        if (texts?.waiting_text) {
             document.getElementById('waiting-text').textContent = texts.waiting_text;
         }
     } catch (error) {
@@ -434,27 +543,52 @@ async function loadWaitingText() {
     }
 }
 
+// ===== تحديث الصورة الشخصية =====
+async function updateProfilePic(file) {
+    if (!file) return;
+    try {
+        const data = await readFileAsDataURL(file);
+        await saveToFirebase(`users/${currentUser.uid}/profilePic`, data);
+        document.getElementById('dash-profile-pic').src = data;
+        showNotification('✅ تم تحديث الصورة الشخصية!', 'success');
+    } catch (error) {
+        showNotification('❌ حدث خطأ', 'error');
+    }
+}
+
+// ===== تحديث البانر =====
+async function updateBannerPic(file) {
+    if (!file) return;
+    try {
+        const data = await readFileAsDataURL(file);
+        await saveToFirebase(`users/${currentUser.uid}/bannerPic`, data);
+        showNotification('✅ تم تحديث البانر!', 'success');
+    } catch (error) {
+        showNotification('❌ حدث خطأ', 'error');
+    }
+}
+
+// ===== تهيئة الصفحة =====
 document.addEventListener('DOMContentLoaded', function() {
     initEmailJS();
     loadWaitingText();
 
-    // إن كنا عائدين من صفحة Discord، أكمل تسجيل الدخول تلقائياً
-    handleDiscordRedirectIfNeeded().then(result => {
+    // معالجة العودة من Discord
+    handleDiscordRedirect().then(result => {
         if (result) {
-            document.querySelector('.auth-buttons').style.display = 'none';
+            document.getElementById('auth-buttons').style.display = 'none';
             setLoggedInUser(result);
         }
     });
 
-    // الدخول بالضغط على Enter في حقل البريد الإلكتروني المباشر
+    // أحداث الإدخال
     const emailLoginInput = document.getElementById('email-login-input');
     if (emailLoginInput) {
-        emailLoginInput.addEventListener('keypress', function(e) {
+        emailLoginInput.addEventListener('keypress', e => {
             if (e.key === 'Enter') loginWithEmailOnly();
         });
     }
 
-    // التحقق الفوري من اسم المستخدم أثناء الكتابة
     const usernameInput = document.getElementById('username');
     if (usernameInput) {
         usernameInput.addEventListener('input', function() {
@@ -470,12 +604,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewImage = document.getElementById('previewImage');
     
     if (uploadBox) {
-        uploadBox.addEventListener('click', function() { fileInput.click(); });
+        uploadBox.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', function(e) {
-            if (e.target.files && e.target.files[0]) {
+            if (e.target.files?.[0]) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImage.src = e.target.result;
+                reader.onload = function(e2) {
+                    previewImage.src = e2.target.result;
                     previewContainer.style.display = 'flex';
                     uploadBox.style.display = 'none';
                 };
@@ -483,7 +617,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // رفع البانر
     const bannerUploadBox = document.getElementById('bannerUploadBox');
     const bannerInput = document.getElementById('bannerPic');
@@ -491,12 +625,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const bannerPreviewImage = document.getElementById('bannerPreviewImage');
     
     if (bannerUploadBox) {
-        bannerUploadBox.addEventListener('click', function() { bannerInput.click(); });
+        bannerUploadBox.addEventListener('click', () => bannerInput.click());
         bannerInput.addEventListener('change', function(e) {
-            if (e.target.files && e.target.files[0]) {
+            if (e.target.files?.[0]) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    bannerPreviewImage.src = e.target.result;
+                reader.onload = function(e2) {
+                    bannerPreviewImage.src = e2.target.result;
                     bannerPreview.style.display = 'block';
                     bannerUploadBox.style.display = 'none';
                 };
@@ -504,46 +638,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // تحديث الصور في لوحة التحكم
     const updateProfileBox = document.getElementById('updateProfileBox');
     const updateProfileInput = document.getElementById('updateProfilePic');
     if (updateProfileBox) {
-        updateProfileBox.addEventListener('click', function() { updateProfileInput.click(); });
-        updateProfileInput.addEventListener('change', async function(e) {
-            if (e.target.files && e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = async function(e2) {
-                    try {
-                        await saveToFirebase(`users/${currentUser.uid}/profilePic`, e2.target.result);
-                        document.getElementById('dash-profile-pic').src = e2.target.result;
-                        showNotification('✅ تم تحديث الصورة الشخصية!', 'success');
-                    } catch (error) {
-                        showNotification('❌ حدث خطأ', 'error');
-                    }
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
+        updateProfileBox.addEventListener('click', () => updateProfileInput.click());
+        updateProfileInput.addEventListener('change', function(e) {
+            if (e.target.files?.[0]) updateProfilePic(e.target.files[0]);
         });
     }
-    
+
     const updateBannerBox = document.getElementById('updateBannerBox');
     const updateBannerInput = document.getElementById('updateBannerPic');
     if (updateBannerBox) {
-        updateBannerBox.addEventListener('click', function() { updateBannerInput.click(); });
-        updateBannerInput.addEventListener('change', async function(e) {
-            if (e.target.files && e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = async function(e2) {
-                    try {
-                        await saveToFirebase(`users/${currentUser.uid}/bannerPic`, e2.target.result);
-                        showNotification('✅ تم تحديث البانر!', 'success');
-                    } catch (error) {
-                        showNotification('❌ حدث خطأ', 'error');
-                    }
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
+        updateBannerBox.addEventListener('click', () => updateBannerInput.click());
+        updateBannerInput.addEventListener('change', function(e) {
+            if (e.target.files?.[0]) updateBannerPic(e.target.files[0]);
         });
     }
 });
+
+// تصدير الدوال للاستخدام في HTML
+window.authWithProvider = authWithProvider;
+window.loginWithEmailOnly = loginWithEmailOnly;
+window.goToStep3 = goToStep3;
+window.confirmPayment = confirmPayment;
+window.updatePortfolio = updatePortfolio;
+window.addWork = addWork;
+window.deleteWork = deleteWork;
+window.goToStep2 = goToStep2;

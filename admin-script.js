@@ -456,3 +456,48 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+// أضف هذه الدوال في admin-script.js إن لم تكن موجودة
+
+// ===== حذف مستخدم =====
+async function deleteUser(uid) {
+    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
+    try {
+        const user = allUsers[uid];
+        if (user && user.usernameKey) {
+            await db.ref(`usernames/${user.usernameKey}`).remove();
+        }
+        await db.ref(`users/${uid}`).remove();
+        showNotification('✅ تم حذف المستخدم', 'success');
+        loadAdminData();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
+    }
+}
+
+// ===== عرض المستخدم =====
+function viewUser(uid) {
+    window.open(`profile.html?uid=${uid}`, '_blank');
+}
+
+// ===== إضافة طريقة دفع =====
+async function addPaymentMethod() {
+    const key = slugifyKey(document.getElementById('new-pm-key').value.trim());
+    const label = document.getElementById('new-pm-label').value.trim();
+    const value = document.getElementById('new-pm-value').value.trim();
+
+    if (!key || !label || !value) {
+        showNotification('❌ يرجى ملء جميع الحقول', 'error');
+        return;
+    }
+
+    try {
+        await saveToFirebase(`payment_methods/${key}`, { label, value });
+        document.getElementById('new-pm-key').value = '';
+        document.getElementById('new-pm-label').value = '';
+        document.getElementById('new-pm-value').value = '';
+        showNotification('✅ تمت إضافة طريقة الدفع', 'success');
+        loadPaymentMethods();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الإضافة', 'error');
+    }
+}

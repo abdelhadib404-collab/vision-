@@ -5,41 +5,125 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
-    <!-- ✅ EmailJS -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <!-- ✅ Firebase Auth (لتسجيل الدخول الحقيقي بـ Google و GitHub) — يجب أن تكون نفس نسخة SDK المستخدمة في firebase-config.js -->
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
     <title>Vision+ | حسابي</title>
     <style>
-        .profile-header-bar {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px 20px;
-            background: #f4f9fa;
-            border-radius: 15px;
-            margin-bottom: 20px;
-        }
-        .profile-header-bar img {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid #b0e0e6;
-        }
-        .profile-header-bar .info { flex: 1; }
-        .profile-header-bar .info .name { font-weight: 700; color: #1e2b2f; }
-        .profile-header-bar .info .email { font-weight: 400; color: #5a6f73; font-size: 0.85em; }
+        /* إضافات خاصة بحسابي */
         .dashboard-section {
             background: #f4f9fa;
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
         }
-        .dashboard-section h3 { color: #1e2b2f; margin-bottom: 15px; }
-        .dashboard-section h3 i { color: #b0e0e6; margin-right: 10px; }
+        .dashboard-section h3 {
+            color: #1e2b2f;
+            margin-bottom: 15px;
+        }
+        .dashboard-section h3 i {
+            color: #b0e0e6;
+            margin-right: 10px;
+        }
+        .stat-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .stat-box {
+            background: #fff;
+            padding: 15px 25px;
+            border-radius: 12px;
+            text-align: center;
+            flex: 1;
+            min-width: 100px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .stat-box .number {
+            font-size: 2em;
+            font-weight: 800;
+            color: #b0e0e6;
+        }
+        .stat-box .label {
+            color: #5a6f73;
+            font-weight: 400;
+            font-size: 0.85em;
+        }
+        .work-item {
+            display: flex;
+            gap: 15px;
+            background: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            align-items: center;
+            border: 1px solid #e8eeef;
+        }
+        .work-item img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+        .work-item .work-info {
+            flex: 1;
+        }
+        .work-item .work-info h4 {
+            font-weight: 700;
+            color: #1e2b2f;
+            margin-bottom: 4px;
+        }
+        .work-item .work-info p {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+            margin: 0;
+        }
+        .add-work-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .add-work-form input, .add-work-form textarea {
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 2px solid #dce8ea;
+            font-weight: 400;
+            width: 100%;
+        }
+        .add-work-form textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .payment-methods-container {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .payment-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 14px 20px;
+            border: 2px solid #b0e0e6;
+            background: transparent;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            color: #1e2b2f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .payment-btn:hover {
+            background: #b0e0e6;
+            transform: scale(1.03);
+        }
         .pending-message {
             text-align: center;
             padding: 40px 30px;
@@ -59,12 +143,246 @@
             font-weight: 400;
             margin-top: 10px;
         }
+        .profile-header-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            background: #f4f9fa;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        .profile-header-bar img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #b0e0e6;
+        }
+        .profile-header-bar .info { flex: 1; }
+        .profile-header-bar .info .name {
+            font-weight: 700;
+            color: #1e2b2f;
+        }
+        .profile-header-bar .info .email {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+        }
         .badge-approved {
             background: #4CAF50;
             color: #fff;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 0.8em;
+        }
+        .auth-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .auth-btn {
+            padding: 14px 20px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .auth-btn:hover { transform: scale(1.02); }
+        .google-btn { background: #fff; color: #1e2b2f; border-color: #4285f4; }
+        .google-btn:hover { background: #4285f4; color: #fff; }
+        .github-btn { background: #fff; color: #1e2b2f; border-color: #333; }
+        .github-btn:hover { background: #333; color: #fff; }
+        .discord-btn { background: #fff; color: #1e2b2f; border-color: #5865f2; }
+        .discord-btn:hover { background: #5865f2; color: #fff; }
+        .next-btn {
+            background: #b0e0e6;
+            color: #1e2b2f;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            width: 100%;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .next-btn:hover {
+            background: #1e2b2f;
+            color: #b0e0e6;
+            transform: scale(1.02);
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #1e2b2f;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+        .form-group label i {
+            color: #b0e0e6;
+            margin-right: 8px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="email"] {
+            width: 100%;
+            padding: 14px 20px;
+            border: 2px solid #dce8ea;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 400;
+            transition: 0.3s;
+            outline: none;
+        }
+        .form-group input:focus {
+            border-color: #b0e0e6;
+            box-shadow: 0 0 0 4px rgba(176,224,230,0.2);
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .service-check {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 400;
+            color: #1e2b2f;
+            padding: 10px 14px;
+            background: #f4f9fa;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .service-check:hover {
+            background: #e0f2f5;
+        }
+        .service-check input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #b0e0e6;
+        }
+        .upload-box {
+            border: 2px dashed #b0e0e6;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+            background: #f4f9fa;
+        }
+        .upload-box:hover {
+            background: #e0f2f5;
+            border-color: #1e2b2f;
+        }
+        .upload-box input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .upload-box p {
+            margin: 10px 0 0;
+            color: #5a6f73;
+            font-weight: 400;
+        }
+        #previewImage {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #b0e0e6;
+        }
+        .field-hint {
+            font-size: 0.8em;
+            font-weight: 400;
+            margin-top: 6px;
+            display: block;
+        }
+        .field-hint.ok { color: #4CAF50; }
+        .field-hint.bad { color: #ff6b6b; }
+        .field-hint.checking { color: #5a6f73; }
+        .yourpage-section {
+            min-height: 100vh;
+            background: linear-gradient(145deg, #0b1a1f, #1f3a42);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 120px 20px;
+        }
+        .yourpage-container {
+            width: 100%;
+            max-width: 750px;
+            margin: 0 auto;
+        }
+        .yourpage-card {
+            background: #ffffff;
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .yourpage-card h2 {
+            color: #1e2b2f;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        .yourpage-card h2 i {
+            color: #b0e0e6;
+            margin-right: 12px;
+        }
+        .step { animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .auth-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px;
+            color: #5a6f73;
+            font-weight: 600;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #b0e0e6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #auth-or-divider {
+            text-align: center;
+            color: #5a6f73;
+            font-weight: 400;
+            margin: 14px 0;
         }
     </style>
 </head>
@@ -80,13 +398,13 @@
 
     <section class="yourpage-section" id="yourpage">
         <div class="yourpage-container">
-            <!-- مرحلة 1: تسجيل الدخول -->
+            <!-- الخطوة 1: تسجيل الدخول -->
             <div id="step-auth" class="step active">
                 <div class="yourpage-card">
                     <h2><i class="fas fa-user-plus"></i> إنشاء حساب</h2>
-                    <p style="color: #5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
-                    
-                    <div class="form-group" id="email-login-box" style="text-align:right; margin-bottom:18px;">
+                    <p style="color:#5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
+
+                    <div class="form-group" id="email-login-box">
                         <label><i class="fas fa-envelope"></i> أو ادخل مباشرة ببريدك الإلكتروني:</label>
                         <div style="display:flex; gap:10px;">
                             <input type="email" id="email-login-input" placeholder="example@email.com" style="flex:1; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
@@ -97,7 +415,7 @@
                         <span class="field-hint" id="email-login-hint"></span>
                     </div>
 
-                    <div id="auth-or-divider" style="text-align:center; color:#5a6f73; font-weight:400; margin:14px 0;">— أو —</div>
+                    <div id="auth-or-divider">— أو —</div>
 
                     <div class="auth-buttons" id="auth-buttons">
                         <button class="auth-btn google-btn" onclick="authWithProvider('google')">
@@ -115,8 +433,8 @@
                         <div class="loader" style="margin:0; width:26px; height:26px;"></div>
                         <span>جاري تسجيل الدخول...</span>
                     </div>
-                    
-                    <div id="auth-user-info" style="display:none; margin-top:25px; padding:20px; background:var(--color-bg-light); border-radius:15px;">
+
+                    <div id="auth-user-info" style="display:none; margin-top:25px; padding:20px; background:#f4f9fa; border-radius:15px;">
                         <div class="profile-header-bar">
                             <img id="auth-profile-pic" src="img/default-avatar.jpg" />
                             <div class="info">
@@ -129,47 +447,45 @@
                 </div>
             </div>
 
-            <!-- مرحلة 2: اختيار الكاتيغوري -->
+            <!-- الخطوة 2: الملف الشخصي -->
             <div id="step-profile" class="step" style="display:none;">
                 <div class="yourpage-card">
                     <h2><i class="fas fa-user-cog"></i> معلومات الملف</h2>
-                    
+
                     <div class="form-group">
                         <label><i class="fas fa-user"></i> اسم المستخدم:</label>
-                        <input type="text" id="username" placeholder="اختر اسم مستخدم (لا يمكن استخدامه من قبل)" required />
+                        <input type="text" id="username" placeholder="اختر اسم مستخدم" required />
                         <span class="field-hint" id="username-hint"></span>
                     </div>
 
                     <div class="form-group">
-                        <label><i class="fas fa-mobile-alt"></i> رقم هاتفك الحقيقي:</label>
+                        <label><i class="fas fa-mobile-alt"></i> رقم الهاتف:</label>
                         <input type="text" id="real-phone" placeholder="+213 555 123 456" required />
-                        <span class="field-hint" id="phone-hint" style="color:var(--color-text-muted);">سيُستخدم للتواصل معك بخصوص طلبك وحسابك</span>
+                        <span class="field-hint" style="color:#5a6f73;">سيُستخدم للتواصل معك</span>
                     </div>
-                    
+
                     <div class="form-group">
                         <label><i class="fas fa-tag"></i> اختر تخصصك:</label>
-                        <div class="services-grid" id="category-grid">
-                            <!-- سيتم تحميل الكاتيغوريس -->
-                        </div>
+                        <div class="services-grid" id="category-grid"></div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label><i class="fas fa-image"></i> الصورة الشخصية:</label>
                         <div class="upload-box" id="uploadBox">
-                            <i class="fas fa-cloud-upload-alt" style="font-size: 2.5em; color: #b0e0e6;"></i>
+                            <i class="fas fa-cloud-upload-alt" style="font-size:2.5em; color:#b0e0e6;"></i>
                             <p>اضغط لرفع الصورة</p>
                             <input type="file" id="profilePic" accept="image/*" />
                         </div>
                         <div id="previewContainer" style="display:none; margin-top:15px;">
-                            <img id="previewImage" src="#" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid #b0e0e6;" />
+                            <img id="previewImage" src="#" />
                             <p style="color:#5a6f73; font-weight:400; margin-top:8px;">✅ تم رفع الصورة</p>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label><i class="fas fa-palette"></i> البانر (اختياري):</label>
                         <div class="upload-box" id="bannerUploadBox">
-                            <i class="fas fa-image" style="font-size: 2.5em; color: #b0e0e6;"></i>
+                            <i class="fas fa-image" style="font-size:2.5em; color:#b0e0e6;"></i>
                             <p>اضغط لرفع البانر</p>
                             <input type="file" id="bannerPic" accept="image/*" />
                         </div>
@@ -177,67 +493,57 @@
                             <img id="bannerPreviewImage" src="#" style="width:100%; max-height:200px; object-fit:cover; border-radius:15px; border:3px solid #b0e0e6;" />
                         </div>
                     </div>
-                    
+
                     <button class="next-btn" onclick="goToStep3()">التالي <i class="fas fa-arrow-right"></i></button>
                 </div>
             </div>
 
-            <!-- مرحلة 3: الدفع -->
+            <!-- الخطوة 3: الدفع -->
             <div id="step-payment" class="step" style="display:none;">
                 <div class="yourpage-card">
                     <h2><i class="fas fa-credit-card"></i> تفعيل الحساب</h2>
                     <p>ادفع <strong>$1</strong> لتفعيل حسابك</p>
-                    
-                    <div class="payment-methods">
-                        <button class="payment-btn" onclick="showPaymentCode('ccp')">
-                            <i class="fas fa-university"></i> CCP
-                        </button>
-                        <button class="payment-btn" onclick="showPaymentCode('redotpay')">
-                            <i class="fas fa-wallet"></i> Redotpay
-                        </button>
-                        <button class="payment-btn" onclick="showPaymentCode('baridimob')">
-                            <i class="fas fa-mobile-alt"></i> Baridimob
-                        </button>
-                    </div>
-                    
-                    <div id="payment-code-container" style="display:none; margin-top:20px; padding:20px; background:var(--color-bg-light); border-radius:15px;">
-                        <p style="font-weight:600; color:var(--color-dark);">أرسل الدفع إلى:</p>
-                        <p id="payment-code" style="font-size:1.4em; color:var(--color-primary); font-weight:700; padding:12px; background:#fff; border-radius:10px; border:2px dashed var(--color-primary); text-align:center;"></p>
 
-                        <div class="form-group" style="margin-top:18px; margin-bottom:0;">
-                            <label><i class="fas fa-wallet"></i> من أي محفظة/حساب أرسلت الدفع؟</label>
+                    <div class="payment-methods-container" id="payment-methods-container"></div>
+
+                    <div id="payment-code-container" style="display:none; margin-top:20px; padding:20px; background:#f4f9fa; border-radius:15px;">
+                        <p style="font-weight:600; color:#1e2b2f;">أرسل الدفع إلى:</p>
+                        <p id="payment-code" style="font-size:1.4em; color:#b0e0e6; font-weight:700; padding:12px; background:#fff; border-radius:10px; border:2px dashed #b0e0e6; text-align:center;"></p>
+
+                        <div class="form-group" style="margin-top:18px;">
+                            <label><i class="fas fa-wallet"></i> من أي محفظة أرسلت الدفع؟</label>
                             <input type="text" id="payment-source" placeholder="مثال: CCP رقم 123456 باسم أحمد" required />
                         </div>
-                        <p style="color:var(--color-text-muted); font-weight:400; font-size:0.85em; margin-top:8px;">
-                            <i class="fas fa-clock"></i> سيتم تسجيل تاريخ ووقت إرسال الطلب تلقائياً مع طلبك.
+                        <p style="color:#5a6f73; font-weight:400; font-size:0.85em;">
+                            <i class="fas fa-clock"></i> سيتم تسجيل وقت إرسال الطلب تلقائياً
                         </p>
 
                         <button class="next-btn" onclick="confirmPayment()" style="margin-top:15px;">
                             <i class="fas fa-check"></i> تم الدفع
                         </button>
                     </div>
-                    
+
                     <div id="payment-status" style="margin-top:20px;"></div>
                 </div>
             </div>
 
-            <!-- مرحلة 4: رسالة الانتظار -->
+            <!-- الخطوة 4: الانتظار -->
             <div id="step-waiting" class="step" style="display:none;">
                 <div class="yourpage-card pending-message">
                     <div class="icon">⏳</div>
-                    <div class="text" id="waiting-text">⏳ يرجى الانتظار من 1 إلى 40 ساعة لمراجعة طلبك من قبل الإدارة</div>
-                    <div class="subtext">سيتم إعلامك عبر البريد الإلكتروني عند قبول طلبك</div>
-                    <div class="loader" style="margin-top:20px;"></div>
-                    <button class="main-btn" onclick="window.location.href='index.html'" style="margin-top:20px; display:inline-block;">
+                    <div class="text" id="waiting-text">⏳ يرجى الانتظار لمراجعة طلبك</div>
+                    <div class="subtext">سيتم إعلامك عبر البريد الإلكتروني عند القبول</div>
+                    <div class="loader"></div>
+                    <button class="next-btn" onclick="window.location.href='index.html'" style="margin-top:20px; background:#b0e0e6; color:#1e2b2f;">
                         العودة للرئيسية
                     </button>
                 </div>
             </div>
 
-            <!-- مرحلة 5: لوحة التحكم -->
+            <!-- الخطوة 5: لوحة التحكم -->
             <div id="step-dashboard" class="step" style="display:none;">
                 <div class="yourpage-card">
-                    <div class="profile-header-bar" id="dashboard-header">
+                    <div class="profile-header-bar">
                         <img id="dash-profile-pic" src="img/default-avatar.jpg" />
                         <div class="info">
                             <div class="name" id="dash-username">اسم المستخدم</div>
@@ -247,7 +553,34 @@
                     </div>
 
                     <div class="dashboard-section">
-                        <h3><i class="fas fa-edit"></i> تعديل البورتفوليو</h3>
+                        <h3><i class="fas fa-chart-simple"></i> الإحصائيات</h3>
+                        <div class="stat-row">
+                            <div class="stat-box">
+                                <div class="number" id="stat-views">0</div>
+                                <div class="label">👁️ مشاهدات</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="number" id="stat-likes">0</div>
+                                <div class="label">❤️ إعجابات</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-section">
+                        <h3><i class="fas fa-briefcase"></i> أعمالي</h3>
+                        <div id="works-container"></div>
+                        <div class="add-work-form">
+                            <input type="text" id="work-title" placeholder="عنوان العمل" />
+                            <textarea id="work-desc" placeholder="وصف العمل"></textarea>
+                            <input type="file" id="work-image" accept="image/*" />
+                            <button class="next-btn" onclick="addWork()" style="width:auto; margin:0;">
+                                <i class="fas fa-plus"></i> إضافة عمل
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-section">
+                        <h3><i class="fas fa-edit"></i> تعديل الملف</h3>
                         <div class="form-group">
                             <label>السيرة الذاتية:</label>
                             <textarea id="edit-bio" rows="4" placeholder="اكتب عن نفسك..." style="width:100%; padding:12px; border-radius:15px; border:2px solid #dce8ea; font-weight:400; resize:vertical;"></textarea>
@@ -278,8 +611,8 @@
                             <input type="file" id="updateBannerPic" accept="image/*" />
                         </div>
                     </div>
-                    
-                    <button class="main-btn" onclick="window.location.href='index.html'" style="margin:20px auto 0; display:block;">
+
+                    <button class="next-btn" onclick="window.location.href='index.html'" style="margin-top:20px; background:#b0e0e6; color:#1e2b2f;">
                         العودة للرئيسية
                     </button>
                 </div>
