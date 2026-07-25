@@ -40,7 +40,8 @@
     </section>
 
     <section class="viral" id="viral">
-        <h2 class="title">🎯 الموهوبون</h2>
+        <h2 class="title" id="viral-title">🎯 الموهوبون</h2>
+        <p id="viral-note" style="display:none; text-align:center; color:var(--color-primary); font-weight:400; margin:-15px 0 30px;"></p>
         <div class="content" id="viral-content">
             <!-- سيتم تحميل الفريلانسرز -->
         </div>
@@ -56,6 +57,7 @@
     </footer>
 
     <script src="firebase-config.js"></script>
+    <script src="common.js"></script>
     <script>
         // ===== تحميل الكاتيغوريس =====
         async function loadServices() {
@@ -142,6 +144,12 @@
                 if (texts.hero_title) document.getElementById('hero-title').textContent = texts.hero_title;
                 if (texts.hero_subtitle) document.getElementById('hero-subtitle').textContent = texts.hero_subtitle;
                 if (texts.footer_text) document.getElementById('footer-text').textContent = texts.footer_text;
+                if (texts.viral_title) document.getElementById('viral-title').textContent = texts.viral_title;
+                if (texts.viral_note) {
+                    const noteEl = document.getElementById('viral-note');
+                    noteEl.textContent = texts.viral_note;
+                    noteEl.style.display = 'block';
+                }
             }
         }
 

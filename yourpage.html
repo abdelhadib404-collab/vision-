@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
     <!-- ✅ EmailJS -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <!-- ✅ Firebase Auth (لتسجيل الدخول الحقيقي بـ Google و GitHub) — يجب أن تكون نفس نسخة SDK المستخدمة في firebase-config.js -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <title>Vision+ | حسابي</title>
     <style>
         .profile-header-bar {
@@ -82,7 +85,7 @@
                     <h2><i class="fas fa-user-plus"></i> إنشاء حساب</h2>
                     <p style="color: #5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
                     
-                    <div class="auth-buttons">
+                    <div class="auth-buttons" id="auth-buttons">
                         <button class="auth-btn google-btn" onclick="authWithProvider('google')">
                             <i class="fa-brands fa-google"></i> تسجيل الدخول بـ Google
                         </button>
@@ -93,8 +96,13 @@
                             <i class="fa-brands fa-discord"></i> تسجيل الدخول بـ Discord
                         </button>
                     </div>
+
+                    <div id="auth-loading" class="auth-loading" style="display:none;">
+                        <div class="loader" style="margin:0; width:26px; height:26px;"></div>
+                        <span>جاري تسجيل الدخول...</span>
+                    </div>
                     
-                    <div id="auth-user-info" style="display:none; margin-top:25px; padding:20px; background:#f4f9fa; border-radius:15px;">
+                    <div id="auth-user-info" style="display:none; margin-top:25px; padding:20px; background:var(--color-bg-light); border-radius:15px;">
                         <div class="profile-header-bar">
                             <img id="auth-profile-pic" src="img/default-avatar.jpg" />
                             <div class="info">
@@ -114,7 +122,14 @@
                     
                     <div class="form-group">
                         <label><i class="fas fa-user"></i> اسم المستخدم:</label>
-                        <input type="text" id="username" placeholder="اختر اسم مستخدم" required />
+                        <input type="text" id="username" placeholder="اختر اسم مستخدم (لا يمكن استخدامه من قبل)" required />
+                        <span class="field-hint" id="username-hint"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-mobile-alt"></i> رقم هاتفك الحقيقي:</label>
+                        <input type="text" id="real-phone" placeholder="+213 555 123 456" required />
+                        <span class="field-hint" id="phone-hint" style="color:var(--color-text-muted);">سيُستخدم للتواصل معك بخصوص طلبك وحسابك</span>
                     </div>
                     
                     <div class="form-group">
@@ -171,9 +186,18 @@
                         </button>
                     </div>
                     
-                    <div id="payment-code-container" style="display:none; margin-top:20px; padding:20px; background:#f4f9fa; border-radius:15px;">
-                        <p style="font-weight:600; color:#1e2b2f;">أرسل الدفع إلى:</p>
-                        <p id="payment-code" style="font-size:1.4em; color:#b0e0e6; font-weight:700; padding:12px; background:#fff; border-radius:10px; border:2px dashed #b0e0e6; text-align:center;"></p>
+                    <div id="payment-code-container" style="display:none; margin-top:20px; padding:20px; background:var(--color-bg-light); border-radius:15px;">
+                        <p style="font-weight:600; color:var(--color-dark);">أرسل الدفع إلى:</p>
+                        <p id="payment-code" style="font-size:1.4em; color:var(--color-primary); font-weight:700; padding:12px; background:#fff; border-radius:10px; border:2px dashed var(--color-primary); text-align:center;"></p>
+
+                        <div class="form-group" style="margin-top:18px; margin-bottom:0;">
+                            <label><i class="fas fa-wallet"></i> من أي محفظة/حساب أرسلت الدفع؟</label>
+                            <input type="text" id="payment-source" placeholder="مثال: CCP رقم 123456 باسم أحمد" required />
+                        </div>
+                        <p style="color:var(--color-text-muted); font-weight:400; font-size:0.85em; margin-top:8px;">
+                            <i class="fas fa-clock"></i> سيتم تسجيل تاريخ ووقت إرسال الطلب تلقائياً مع طلبك.
+                        </p>
+
                         <button class="next-btn" onclick="confirmPayment()" style="margin-top:15px;">
                             <i class="fas fa-check"></i> تم الدفع
                         </button>
@@ -262,6 +286,8 @@
     </footer>
 
     <script src="firebase-config.js"></script>
+    <script src="common.js"></script>
+    <script src="auth.js"></script>
     <script src="yourpage-script.js"></script>
 </body>
 </html>

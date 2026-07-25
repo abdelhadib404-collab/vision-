@@ -1,64 +1,94 @@
-const ADMIN_PASSWORD = "admin123";
+// =====================================================
+// admin-script.js — لوحة تحكم Vision+
+// =====================================================
 
-// ✅ تهيئة EmailJS
-emailjs.init('CKWFEy1mLeWLKlkkC'); // 🔴 ضع مفتاحك العام هنا
+// 🔴 يمكنك تغيير كلمة مرور الإدارة من هنا، أو أفضل: حفظها في Firebase تحت admin_settings/password
+const DEFAULT_ADMIN_PASSWORD = 'admin123';
 
-function loginAdmin() {
-    const pass = document.getElementById('admin-password').value;
-    if (pass === ADMIN_PASSWORD) {
+let allUsers = {};
+let allCategories = {};
+
+// ===== تسجيل دخول الإدارة =====
+async function loginAdmin() {
+    const input = document.getElementById('admin-password').value;
+    const errorEl = document.getElementById('login-error');
+
+    let realPassword = DEFAULT_ADMIN_PASSWORD;
+    try {
+        const stored = await loadFromFirebase('admin_settings/password');
+        if (stored) realPassword = stored;
+    } catch (error) {
+        console.error('Error loading admin password:', error);
+    }
+
+    if (input === realPassword) {
+        sessionStorage.setItem('vp_admin_logged_in', 'true');
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-dashboard').style.display = 'block';
         loadAdminData();
-        loadCategories();
-        loadTexts();
-        showNotification('✅ مرحباً أيها المسؤول!', 'success');
     } else {
-        document.getElementById('login-error').textContent = '❌ كلمة مرور خاطئة!';
+        errorEl.textContent = '❌ كلمة المرور غير صحيحة';
     }
 }
 
-// ===== تحميل بيانات المسؤول =====
+// ===== التبديل بين التبويبات =====
+function switchTab(tab) {
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+
+    event.target.classList.add('active');
+    document.getElementById(`panel-${tab}`).classList.add('active');
+
+    if (tab === 'categories') loadCategoriesAdmin();
+    if (tab === 'texts') loadTexts();
+    if (tab === 'payments') loadPaymentMethods();
+    if (tab === 'email') loadEmailConfig();
+    if (tab === 'discord') loadDiscordConfig();
+    if (tab === 'colors') loadColors();
+}
+
+// ===== تحميل كل بيانات الإدارة =====
 async function loadAdminData() {
     try {
         const users = await loadFromFirebase('users');
-        console.log('Users loaded:', users);
-        
-        if (!users) {
-            document.getElementById('pending-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">لا يوجد مستخدمين</td></tr>';
-            document.getElementById('approved-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">لا يوجد مستخدمين</td></tr>';
-            return;
-        }
+        allUsers = users || {};
 
-        const userList = Object.entries(users).map(([key, val]) => ({ ...val, uid: key }));
-        const pending = userList.filter(u => u.status === 'pending');
-        const approved = userList.filter(u => u.status === 'approved');
+        const list = Object.values(allUsers);
+        const pending = list.filter(u => u.status === 'pending');
+        const approved = list.filter(u => u.status === 'approved');
 
-        document.getElementById('stat-total').textContent = userList.length;
+        document.getElementById('stat-total').textContent = list.length;
         document.getElementById('stat-pending').textContent = pending.length;
         document.getElementById('stat-approved').textContent = approved.length;
 
-        renderPending(pending);
-        renderApproved(approved);
+        renderPendingTable(pending);
+        renderApprovedTable(approved);
     } catch (error) {
         console.error('Error loading admin data:', error);
         showNotification('❌ خطأ في تحميل البيانات', 'error');
     }
 }
 
-function renderPending(users) {
+function renderPendingTable(pending) {
     const tbody = document.getElementById('pending-table-body');
-    if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">✨ لا يوجد طلبات معلقة</td></tr>';
+    if (pending.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">لا توجد طلبات قيد الانتظار</td></tr>';
         return;
     }
-    tbody.innerHTML = users.map(u => `
+
+    tbody.innerHTML = pending.map(u => `
         <tr>
-            <td><img src="${u.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
-            <td><strong>${u.username || 'غير معروف'}</strong></td>
-            <td>${u.email || 'لا يوجد بريد'}</td>
-            <td><span class="category-chip">${u.categoryId || 'N/A'}</span></td>
-            <td>${u.paymentMethod || 'N/A'}</td>
-            <td><span class="badge-pending">⏳ قيد الانتظار</span></td>
+            <td><img class="profile-thumb" src="${u.profilePic || 'img/default-avatar.jpg'}" /></td>
+            <td>${escapeHtml(u.username || u.displayName || '—')}</td>
+            <td>${escapeHtml(u.email || '—')}</td>
+            <td>${escapeHtml(u.phone || '—')}</td>
+            <td><span class="category-chip">${escapeHtml(u.categoryId || '—')}</span></td>
+            <td class="request-note">
+                💳 ${escapeHtml(u.paymentMethod || '—')}<br/>
+                🕒 ${escapeHtml(u.paymentTime || '—')}<br/>
+                👛 ${escapeHtml(u.paymentSource || '—')}
+            </td>
+            <td><span class="badge-pending">قيد الانتظار</span></td>
             <td>
                 <button class="admin-btn approve" onclick="approveUser('${u.uid}')"><i class="fas fa-check"></i> قبول</button>
                 <button class="admin-btn reject" onclick="rejectUser('${u.uid}')"><i class="fas fa-times"></i> رفض</button>
@@ -68,136 +98,93 @@ function renderPending(users) {
     `).join('');
 }
 
-function renderApproved(users) {
+function renderApprovedTable(approved) {
     const tbody = document.getElementById('approved-table-body');
-    if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">لا يوجد مستخدمين مفعلين</td></tr>';
+    if (approved.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">لا يوجد مستخدمون مفعّلون</td></tr>';
         return;
     }
-    tbody.innerHTML = users.map(u => `
+
+    tbody.innerHTML = approved.map(u => `
         <tr>
-            <td><img src="${u.profilePic || 'img/default-avatar.jpg'}" class="profile-thumb" /></td>
-            <td><strong>${u.username || 'غير معروف'}</strong></td>
-            <td>${u.email || 'لا يوجد بريد'}</td>
-            <td><span class="category-chip">${u.categoryId || 'N/A'}</span></td>
-            <td><span class="badge-approved">✅ مفعل</span></td>
+            <td><img class="profile-thumb" src="${u.profilePic || 'img/default-avatar.jpg'}" /></td>
+            <td>${escapeHtml(u.username || u.displayName || '—')}</td>
+            <td>${escapeHtml(u.email || '—')}</td>
+            <td>${escapeHtml(u.phone || '—')}</td>
+            <td><span class="category-chip">${escapeHtml(u.categoryId || '—')}</span></td>
+            <td><span class="badge-approved">مفعل</span></td>
             <td>
-                <button class="admin-btn view" onclick="viewUser('${u.uid}')"><i class="fas fa-eye"></i></button>
-                <button class="admin-btn reject" onclick="rejectUser('${u.uid}')"><i class="fas fa-times"></i></button>
+                <button class="admin-btn view" onclick="viewUser('${u.uid}')"><i class="fas fa-eye"></i> عرض</button>
+                <button class="admin-btn delete" onclick="deleteUser('${u.uid}')"><i class="fas fa-trash"></i> حذف</button>
             </td>
         </tr>
     `).join('');
 }
 
-// ===== ✅ دالة إرسال إيميل التأكيد للمستخدم (هنا مكان الكود) =====
-async function sendApprovalEmail(user) {
-    try {
-        const templateParams = {
-            username: user.username || 'مستخدم',
-            email: user.email || '',
-            category: user.categoryId || 'لا يوجد',
-            approve_date: new Date().toLocaleString('ar-DZ')
-        };
-        
-        await emailjs.send(
-            'service_y29ncb9',        // 🔴 ضع SERVICE_ID الخاص بك
-            'template_w2nxpda',    // 🔴 ضع TEMPLATE_ID الخاص بك
-            templateParams
-        );
-        console.log('✅ Approval email sent to user');
-        return true;
-    } catch (error) {
-        console.error('❌ Error sending approval email:', error);
-        return false;
-    }
-}
-
-// ===== ✅ دالة إرسال إيميل الرفض للمستخدم (هنا مكان الكود) =====
-async function sendRejectionEmail(user, reason) {
-    try {
-        const templateParams = {
-            username: user.username || 'مستخدم',
-            email: user.email || '',
-            reason: reason || 'لم يتم تحديد سبب'
-        };
-        
-        await emailjs.send(
-            'service_y29ncb9',        // 🔴 ضع SERVICE_ID الخاص بك
-            'template_w2nxpda',    // 🔴 ضع TEMPLATE_ID الخاص بك
-            templateParams
-        );
-        console.log('✅ Rejection email sent to user');
-        return true;
-    } catch (error) {
-        console.error('❌ Error sending rejection email:', error);
-        return false;
-    }
-}
-
-// ===== إجراءات المسؤول =====
+// ===== قبول / رفض / حذف مستخدم =====
 async function approveUser(uid) {
-    if (confirm('هل تريد قبول هذا المستخدم؟')) {
-        try {
-            const user = await loadFromFirebase(`users/${uid}`);
-            
-            // ✅ إرسال إيميل تأكيد للمستخدم
-            if (user && user.email) {
-                await sendApprovalEmail(user);
-                alert(`📧 تم إرسال إيميل إلى ${user.email} لإعلامه بقبول طلبه`);
-            }
-            
-            await saveToFirebase(`users/${uid}/status`, 'approved');
-            await saveToFirebase(`users/${uid}/approvedAt`, new Date().toISOString());
-            
-            showNotification('✅ تم قبول المستخدم!', 'success');
-            loadAdminData();
-        } catch (error) {
-            showNotification('❌ حدث خطأ', 'error');
-        }
+    try {
+        await saveToFirebase(`users/${uid}/status`, 'approved');
+        showNotification('✅ تم قبول الطلب، أصبح المستخدم ظاهراً في صفحة تخصصه', 'success');
+        loadAdminData();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء القبول', 'error');
     }
 }
 
 async function rejectUser(uid) {
-    const reason = prompt('سبب الرفض:');
-    if (reason !== null) {
-        try {
-            const user = await loadFromFirebase(`users/${uid}`);
-            
-            // ✅ إرسال إيميل رفض للمستخدم
-            if (user && user.email) {
-                await sendRejectionEmail(user, reason);
-            }
-            
-            await saveToFirebase(`users/${uid}/status`, 'rejected');
-            await saveToFirebase(`users/${uid}/rejectionReason`, reason || 'لا يوجد سبب');
-            showNotification('❌ تم رفض المستخدم', 'error');
-            loadAdminData();
-        } catch (error) {
-            showNotification('❌ حدث خطأ', 'error');
+    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟ سيتم تحرير اسم المستخدم لاستخدامه من جديد.')) return;
+    try {
+        const user = allUsers[uid];
+        await saveToFirebase(`users/${uid}/status`, 'rejected');
+        // تحرير اسم المستخدم ليصبح متاحاً من جديد
+        if (user && user.usernameKey) {
+            await db.ref(`usernames/${user.usernameKey}`).remove();
         }
+        showNotification('✅ تم رفض الطلب', 'success');
+        loadAdminData();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الرفض', 'error');
+    }
+}
+
+async function deleteUser(uid) {
+    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
+    try {
+        const user = allUsers[uid];
+        if (user && user.usernameKey) {
+            await db.ref(`usernames/${user.usernameKey}`).remove();
+        }
+        await db.ref(`users/${uid}`).remove();
+        showNotification('✅ تم حذف المستخدم', 'success');
+        loadAdminData();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
     }
 }
 
 function viewUser(uid) {
-    alert(`📊 بيانات المستخدم\n\nعرض في Firebase:\n${FIREBASE_URL}users/${uid}.json`);
+    window.open(`profile.html?uid=${uid}`, '_blank');
 }
 
 // ===== إدارة التخصصات =====
-async function loadCategories() {
+async function loadCategoriesAdmin() {
     try {
         const categories = await loadFromFirebase('categories');
+        allCategories = categories || {};
         const container = document.getElementById('categories-list');
-        if (!categories) {
-            container.innerHTML = '<p style="color:#5a6f73;">لا توجد تخصصات</p>';
+
+        const entries = Object.values(allCategories);
+        if (entries.length === 0) {
+            container.innerHTML = '<p style="color:#5a6f73;">لا توجد تخصصات بعد</p>';
             return;
         }
-        container.innerHTML = Object.values(categories).map(cat => `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 15px; background:#f4f9fa; border-radius:12px; margin-bottom:8px; border-left:4px solid ${cat.color || '#b0e0e6'};">
-                <div>
-                    <i class="fas ${cat.icon}" style="color:${cat.color || '#b0e0e6'}; width:30px;"></i>
-                    <strong>${cat.name}</strong>
-                    <span style="color:#5a6f73; font-weight:400; margin-left:10px;">${cat.id}</span>
-                </div>
+
+        container.innerHTML = entries.map(cat => `
+            <div class="payment-method-row">
+                <i class="fas ${cat.icon}" style="color:${cat.color || '#b0e0e6'}; font-size:1.4em;"></i>
+                <span style="flex:1; font-weight:600; color:#1e2b2f;">${escapeHtml(cat.name)}</span>
+                <span class="category-chip">${escapeHtml(cat.id)}</span>
                 <button class="admin-btn delete" onclick="deleteCategory('${cat.id}')"><i class="fas fa-trash"></i></button>
             </div>
         `).join('');
@@ -208,35 +195,34 @@ async function loadCategories() {
 
 async function addCategory() {
     const name = document.getElementById('cat-name').value.trim();
-    const icon = document.getElementById('cat-icon').value.trim();
+    const icon = document.getElementById('cat-icon').value.trim() || 'fa-star';
     const color = document.getElementById('cat-color').value;
-    
-    if (!name || !icon) {
-        showNotification('❌ يرجى إدخال الاسم والأيقونة', 'error');
+
+    if (!name) {
+        showNotification('❌ يرجى إدخال اسم التخصص', 'error');
         return;
     }
-    
-    const id = name.toLowerCase().replace(/\s+/g, '_');
+
+    const id = slugifyKey(name);
     try {
         await saveToFirebase(`categories/${id}`, { id, name, icon, color });
         document.getElementById('cat-name').value = '';
         document.getElementById('cat-icon').value = '';
-        showNotification('✅ تم إضافة التخصص!', 'success');
-        loadCategories();
+        showNotification('✅ تمت إضافة التخصص', 'success');
+        loadCategoriesAdmin();
     } catch (error) {
-        showNotification('❌ حدث خطأ', 'error');
+        showNotification('❌ حدث خطأ أثناء الإضافة', 'error');
     }
 }
 
 async function deleteCategory(id) {
-    if (confirm(`حذف التخصص "${id}"؟`)) {
-        try {
-            await deleteFromFirebase(`categories/${id}`);
-            showNotification('🗑️ تم حذف التخصص', 'error');
-            loadCategories();
-        } catch (error) {
-            showNotification('❌ حدث خطأ', 'error');
-        }
+    if (!confirm('حذف هذا التخصص؟')) return;
+    try {
+        await db.ref(`categories/${id}`).remove();
+        showNotification('✅ تم حذف التخصص', 'success');
+        loadCategoriesAdmin();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
     }
 }
 
@@ -247,7 +233,9 @@ async function loadTexts() {
         if (texts) {
             document.getElementById('edit-hero-title').value = texts.hero_title || '';
             document.getElementById('edit-hero-subtitle').value = texts.hero_subtitle || '';
-            document.getElementById('edit-waiting-text').value = texts.waiting_message || '';
+            document.getElementById('edit-waiting-text').value = texts.waiting_text || '';
+            document.getElementById('edit-viral-title').value = texts.viral_title || '';
+            document.getElementById('edit-viral-note').value = texts.viral_note || '';
             document.getElementById('edit-footer-text').value = texts.footer_text || '';
         }
     } catch (error) {
@@ -259,28 +247,212 @@ async function saveTexts() {
     const texts = {
         hero_title: document.getElementById('edit-hero-title').value.trim(),
         hero_subtitle: document.getElementById('edit-hero-subtitle').value.trim(),
-        waiting_message: document.getElementById('edit-waiting-text').value.trim(),
+        waiting_text: document.getElementById('edit-waiting-text').value.trim(),
+        viral_title: document.getElementById('edit-viral-title').value.trim(),
+        viral_note: document.getElementById('edit-viral-note').value.trim(),
         footer_text: document.getElementById('edit-footer-text').value.trim()
     };
     try {
         await saveToFirebase('site_texts', texts);
-        showNotification('✅ تم حفظ النصوص!', 'success');
+        showNotification('✅ تم حفظ النصوص', 'success');
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+    }
+}
+
+// ===== إدارة طرق الدفع =====
+async function loadPaymentMethods() {
+    try {
+        const methods = await loadFromFirebase('payment_methods');
+        const container = document.getElementById('payment-methods-list');
+
+        if (!methods) {
+            container.innerHTML = '<p style="color:#5a6f73;">لا توجد طرق دفع مضافة بعد (سيتم استخدام القيم الافتراضية)</p>';
+            return;
+        }
+
+        container.innerHTML = Object.entries(methods).map(([key, m]) => `
+            <div class="payment-method-row">
+                <span class="category-chip">${escapeHtml(key)}</span>
+                <input type="text" value="${escapeHtml(m.label || key)}" onchange="updatePaymentMethodField('${key}', 'label', this.value)" placeholder="الاسم الظاهر" />
+                <input type="text" value="${escapeHtml(m.value || '')}" onchange="updatePaymentMethodField('${key}', 'value', this.value)" placeholder="الرقم/الكود" />
+                <button class="admin-btn delete" onclick="deletePaymentMethod('${key}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading payment methods:', error);
+    }
+}
+
+async function addPaymentMethod() {
+    const key = slugifyKey(document.getElementById('new-pm-key').value.trim());
+    const label = document.getElementById('new-pm-label').value.trim();
+    const value = document.getElementById('new-pm-value').value.trim();
+
+    if (!key || !label || !value) {
+        showNotification('❌ يرجى ملء جميع الحقول', 'error');
+        return;
+    }
+
+    try {
+        await saveToFirebase(`payment_methods/${key}`, { label, value });
+        document.getElementById('new-pm-key').value = '';
+        document.getElementById('new-pm-label').value = '';
+        document.getElementById('new-pm-value').value = '';
+        showNotification('✅ تمت إضافة طريقة الدفع', 'success');
+        loadPaymentMethods();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الإضافة', 'error');
+    }
+}
+
+async function updatePaymentMethodField(key, field, value) {
+    try {
+        await saveToFirebase(`payment_methods/${key}/${field}`, value);
+        showNotification('✅ تم التحديث', 'success');
     } catch (error) {
         showNotification('❌ حدث خطأ', 'error');
     }
 }
 
-// ===== تبديل التبويبات =====
-function switchTab(tab) {
-    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
-    document.querySelector(`.admin-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-    document.getElementById(`panel-${tab}`).classList.add('active');
+async function deletePaymentMethod(key) {
+    if (!confirm('حذف طريقة الدفع هذه؟')) return;
+    try {
+        await db.ref(`payment_methods/${key}`).remove();
+        showNotification('✅ تم الحذف', 'success');
+        loadPaymentMethods();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحذف', 'error');
+    }
 }
 
-// ===== تحميل الصفحة =====
+// ===== إعدادات EmailJS =====
+async function loadEmailConfig() {
+    try {
+        const cfg = await loadFromFirebase('email_config');
+        if (cfg) {
+            document.getElementById('email-public-key').value = cfg.public_key || '';
+            document.getElementById('email-service-id').value = cfg.service_id || '';
+            document.getElementById('email-template-id').value = cfg.template_id || '';
+        }
+    } catch (error) {
+        console.error('Error loading email config:', error);
+    }
+}
+
+async function saveEmailConfig() {
+    const cfg = {
+        public_key: document.getElementById('email-public-key').value.trim(),
+        service_id: document.getElementById('email-service-id').value.trim(),
+        template_id: document.getElementById('email-template-id').value.trim()
+    };
+    try {
+        await saveToFirebase('email_config', cfg);
+        showNotification('✅ تم حفظ إعدادات البريد', 'success');
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+    }
+}
+
+// ===== إعدادات Discord OAuth =====
+async function loadDiscordConfig() {
+    try {
+        const cfg = await loadFromFirebase('site_settings/discord_oauth');
+        if (cfg) {
+            document.getElementById('discord-client-id').value = cfg.client_id || '';
+            document.getElementById('discord-redirect-uri').value = cfg.redirect_uri || '';
+            document.getElementById('discord-function-url').value = cfg.function_url || '';
+        }
+    } catch (error) {
+        console.error('Error loading discord config:', error);
+    }
+}
+
+async function saveDiscordConfig() {
+    const cfg = {
+        client_id: document.getElementById('discord-client-id').value.trim(),
+        redirect_uri: document.getElementById('discord-redirect-uri').value.trim(),
+        function_url: document.getElementById('discord-function-url').value.trim()
+    };
+    try {
+        await saveToFirebase('site_settings/discord_oauth', cfg);
+        showNotification('✅ تم حفظ إعدادات Discord', 'success');
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+    }
+}
+
+// ===== إدارة الألوان =====
+async function loadColors() {
+    try {
+        const colors = await loadFromFirebase('site_settings/colors');
+        if (colors) {
+            if (colors.primary) document.getElementById('color-primary').value = colors.primary;
+            if (colors.primaryLight) document.getElementById('color-primaryLight').value = colors.primaryLight;
+            if (colors.dark) document.getElementById('color-dark').value = colors.dark;
+            if (colors.dark2) document.getElementById('color-dark2').value = colors.dark2;
+            if (colors.dark3) document.getElementById('color-dark3').value = colors.dark3;
+            if (colors.textMuted) document.getElementById('color-textMuted').value = colors.textMuted;
+            if (colors.bgLight) document.getElementById('color-bgLight').value = colors.bgLight;
+        }
+    } catch (error) {
+        console.error('Error loading colors:', error);
+    }
+}
+
+async function saveColors() {
+    const colors = {
+        primary: document.getElementById('color-primary').value,
+        primaryLight: document.getElementById('color-primaryLight').value,
+        dark: document.getElementById('color-dark').value,
+        dark2: document.getElementById('color-dark2').value,
+        dark3: document.getElementById('color-dark3').value,
+        textMuted: document.getElementById('color-textMuted').value,
+        bgLight: document.getElementById('color-bgLight').value
+    };
+    try {
+        await saveToFirebase('site_settings/colors', colors);
+        showNotification('✅ تم حفظ الألوان وتطبيقها على الموقع', 'success');
+        applySiteColors();
+    } catch (error) {
+        showNotification('❌ حدث خطأ أثناء الحفظ', 'error');
+    }
+}
+
+async function resetColors() {
+    if (!confirm('استعادة الألوان الافتراضية؟')) return;
+    try {
+        await db.ref('site_settings/colors').remove();
+        showNotification('✅ تمت استعادة الألوان الافتراضية', 'success');
+        location.reload();
+    } catch (error) {
+        showNotification('❌ حدث خطأ', 'error');
+    }
+}
+
+// ===== أداة مساعدة لمنع XSS البسيط عند عرض بيانات المستخدمين =====
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// ===== عند تحميل الصفحة: تذكّر جلسة الإدارة =====
 document.addEventListener('DOMContentLoaded', function() {
-    const style = document.createElement('style');
-    style.textContent = `@keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }`;
-    document.head.appendChild(style);
+    if (sessionStorage.getItem('vp_admin_logged_in') === 'true') {
+        document.getElementById('admin-login').style.display = 'none';
+        document.getElementById('admin-dashboard').style.display = 'block';
+        loadAdminData();
+    }
+
+    const pwInput = document.getElementById('admin-password');
+    if (pwInput) {
+        pwInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') loginAdmin();
+        });
+    }
 });

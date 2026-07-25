@@ -239,15 +239,19 @@
                     <button class="admin-tab" onclick="switchTab('approved')">✅ مفعل</button>
                     <button class="admin-tab" onclick="switchTab('categories')">📁 التخصصات</button>
                     <button class="admin-tab" onclick="switchTab('texts')">✏️ النصوص</button>
+                    <button class="admin-tab" onclick="switchTab('payments')">💳 طرق الدفع</button>
+                    <button class="admin-tab" onclick="switchTab('email')">📧 إعدادات البريد</button>
+                    <button class="admin-tab" onclick="switchTab('discord')">🎮 Discord OAuth</button>
+                    <button class="admin-tab" onclick="switchTab('colors')">🎨 الألوان</button>
                 </div>
                 
                 <!-- قيد الانتظار -->
                 <div class="admin-panel active" id="panel-pending">
                     <div class="table-wrapper">
                         <table class="admin-table">
-                            <thead><tr><th>الصورة</th><th>الاسم</th><th>البريد</th><th>التخصص</th><th>طريقة الدفع</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                            <thead><tr><th>الصورة</th><th>الاسم</th><th>البريد</th><th>الهاتف</th><th>التخصص</th><th>ملاحظة الدفع</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
                             <tbody id="pending-table-body">
-                                <tr><td colspan="7" style="text-align:center;padding:30px;">جاري التحميل...</td></tr>
+                                <tr><td colspan="8" style="text-align:center;padding:30px;">جاري التحميل...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -257,9 +261,9 @@
                 <div class="admin-panel" id="panel-approved">
                     <div class="table-wrapper">
                         <table class="admin-table">
-                            <thead><tr><th>الصورة</th><th>الاسم</th><th>البريد</th><th>التخصص</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                            <thead><tr><th>الصورة</th><th>الاسم</th><th>البريد</th><th>الهاتف</th><th>التخصص</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
                             <tbody id="approved-table-body">
-                                <tr><td colspan="6" style="text-align:center;padding:30px;">جاري التحميل...</td></tr>
+                                <tr><td colspan="7" style="text-align:center;padding:30px;">جاري التحميل...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -289,6 +293,12 @@
                         
                         <label style="font-weight:600;">رسالة الانتظار:</label>
                         <textarea id="edit-waiting-text" rows="3" style="width:100%; padding:12px; border-radius:15px; border:2px solid #dce8ea; font-weight:400; resize:vertical; margin-bottom:10px;"></textarea>
+
+                        <label style="font-weight:600;">عنوان قسم المميزين (الموهوبين):</label>
+                        <input type="text" id="edit-viral-title" style="width:100%; padding:12px; border-radius:50px; border:2px solid #dce8ea; margin-bottom:10px;" />
+
+                        <label style="font-weight:600;">النص السفلي لقسم المميزين:</label>
+                        <input type="text" id="edit-viral-note" placeholder="مثال: أفضل المواهب المختارة من فريقنا" style="width:100%; padding:12px; border-radius:50px; border:2px solid #dce8ea; margin-bottom:10px;" />
                         
                         <label style="font-weight:600;">نص التذييل:</label>
                         <input type="text" id="edit-footer-text" style="width:100%; padding:12px; border-radius:50px; border:2px solid #dce8ea; margin-bottom:10px;" />
@@ -297,6 +307,114 @@
                             <i class="fas fa-save"></i> حفظ النصوص
                         </button>
                     </div>
+                </div>
+
+                <!-- طرق الدفع -->
+                <div class="admin-panel" id="panel-payments">
+                    <h3 style="color:#1e2b2f; margin-bottom:15px;">إدارة طرق الدفع</h3>
+                    <p style="color:#5a6f73; font-weight:400; margin-bottom:15px;">هذه الأكواد/الأرقام هي ما يظهر للمستخدم عند الدفع في صفحة "حسابي".</p>
+                    <div id="payment-methods-list"></div>
+                    <div class="add-form" style="margin-top:20px;">
+                        <input type="text" id="new-pm-key" placeholder="المعرّف (مثال: ccp)" />
+                        <input type="text" id="new-pm-label" placeholder="الاسم الظاهر (مثال: CCP)" />
+                        <input type="text" id="new-pm-value" placeholder="الرقم/الكود" />
+                        <button onclick="addPaymentMethod()"><i class="fas fa-plus"></i> إضافة طريقة دفع</button>
+                    </div>
+                </div>
+
+                <!-- إعدادات البريد (EmailJS) -->
+                <div class="admin-panel" id="panel-email">
+                    <h3 style="color:#1e2b2f; margin-bottom:15px;">إعدادات إشعارات البريد الإلكتروني (EmailJS)</h3>
+                    <p style="color:#5a6f73; font-weight:400; margin-bottom:15px;">
+                        عدّل هذه القيم من هنا بدل التعديل داخل الكود مباشرة. احصل عليها من لوحة تحكم
+                        <a href="https://dashboard.emailjs.com" target="_blank" style="color:#b0e0e6;">EmailJS</a>.
+                    </p>
+                    <div class="email-config-grid">
+                        <div>
+                            <label>Public Key:</label>
+                            <input type="text" id="email-public-key" placeholder="مثال: CKWFEy1mLeWLKlkkC" />
+                        </div>
+                        <div>
+                            <label>Service ID:</label>
+                            <input type="text" id="email-service-id" placeholder="مثال: service_y29ncb9" />
+                        </div>
+                        <div>
+                            <label>Template ID:</label>
+                            <input type="text" id="email-template-id" placeholder="مثال: template_w2nxpda" />
+                        </div>
+                        <button onclick="saveEmailConfig()" style="padding:12px 30px; border-radius:50px; background:#b0e0e6; border:none; font-weight:700; cursor:pointer; width:fit-content;">
+                            <i class="fas fa-save"></i> حفظ إعدادات البريد
+                        </button>
+                    </div>
+                </div>
+
+                <!-- إعدادات Discord OAuth -->
+                <div class="admin-panel" id="panel-discord">
+                    <h3 style="color:#1e2b2f; margin-bottom:15px;">إعدادات تسجيل الدخول عبر Discord</h3>
+                    <p style="color:#5a6f73; font-weight:400; margin-bottom:15px;">
+                        أنشئ تطبيقاً على
+                        <a href="https://discord.com/developers/applications" target="_blank" style="color:#b0e0e6;">Discord Developer Portal</a>
+                        وضع القيم هنا. الـ Client Secret يوضع فقط في إعدادات Cloud Function (functions/index.js) ولا يُكتب هنا أبداً لأسباب أمنية.
+                    </p>
+                    <div class="email-config-grid">
+                        <div>
+                            <label>Client ID:</label>
+                            <input type="text" id="discord-client-id" placeholder="Discord Application Client ID" />
+                        </div>
+                        <div>
+                            <label>Redirect URI (رابط صفحة حسابي):</label>
+                            <input type="text" id="discord-redirect-uri" placeholder="https://yourdomain.com/yourpage.html" />
+                        </div>
+                        <div>
+                            <label>رابط Cloud Function (discordAuth):</label>
+                            <input type="text" id="discord-function-url" placeholder="https://REGION-PROJECT.cloudfunctions.net/discordAuth" />
+                        </div>
+                        <button onclick="saveDiscordConfig()" style="padding:12px 30px; border-radius:50px; background:#b0e0e6; border:none; font-weight:700; cursor:pointer; width:fit-content;">
+                            <i class="fas fa-save"></i> حفظ إعدادات Discord
+                        </button>
+                    </div>
+                </div>
+
+                <!-- الألوان -->
+                <div class="admin-panel" id="panel-colors">
+                    <h3 style="color:#1e2b2f; margin-bottom:15px;">ألوان الموقع</h3>
+                    <p style="color:#5a6f73; font-weight:400; margin-bottom:15px;">يتم تطبيق هذه الألوان تلقائياً على كامل صفحات الموقع فور الحفظ.</p>
+                    <div class="color-settings-grid">
+                        <div class="color-setting-item">
+                            <label>اللون الأساسي (Primary)</label>
+                            <input type="color" id="color-primary" value="#b0e0e6" />
+                        </div>
+                        <div class="color-setting-item">
+                            <label>اللون الأساسي الفاتح</label>
+                            <input type="color" id="color-primaryLight" value="#d4f0f5" />
+                        </div>
+                        <div class="color-setting-item">
+                            <label>اللون الداكن الرئيسي</label>
+                            <input type="color" id="color-dark" value="#1e2b2f" />
+                        </div>
+                        <div class="color-setting-item">
+                            <label>اللون الداكن 2 (خلفيات)</label>
+                            <input type="color" id="color-dark2" value="#0b1a1f" />
+                        </div>
+                        <div class="color-setting-item">
+                            <label>اللون الداكن 3 (تدرّج)</label>
+                            <input type="color" id="color-dark3" value="#1f3a42" />
+                        </div>
+                        <div class="color-setting-item">
+                            <label>لون النص الثانوي</label>
+                            <input type="color" id="color-textMuted" value="#5a6f73" />
+                        </div>
+                        <div class="color-setting-item">
+                            <label>لون الخلفية الفاتحة</label>
+                            <input type="color" id="color-bgLight" value="#f4f9fa" />
+                        </div>
+                    </div>
+                    <button onclick="saveColors()" style="margin-top:20px; padding:12px 30px; border-radius:50px; background:#b0e0e6; border:none; font-weight:700; cursor:pointer;">
+                        <i class="fas fa-save"></i> حفظ الألوان وتطبيقها على الموقع
+                    </button>
+                    <button onclick="resetColors()" style="margin-top:20px; margin-right:10px; padding:12px 30px; border-radius:50px; background:#eee; border:none; font-weight:700; cursor:pointer;">
+                        <i class="fas fa-undo"></i> استعادة الألوان الافتراضية
+                    </button>
                 </div>
             </div>
         </div>
@@ -315,6 +433,7 @@
     </footer>
 
     <script src="firebase-config.js"></script>
+    <script src="common.js"></script>
     <script src="admin-script.js"></script>
 </body>
 </html>
