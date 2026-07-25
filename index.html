@@ -6,6 +6,67 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.0/css/all.min.css" />
     <title>Vision+</title>
+    <style>
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+        .header-user img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #b0e0e6;
+        }
+        .header-user .username {
+            color: #d4e9ed;
+            font-weight: 600;
+            font-size: 0.9em;
+            display: none;
+        }
+        @media (min-width: 768px) {
+            .header-user .username { display: inline; }
+        }
+        .user-dropdown {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            min-width: 160px;
+            display: none;
+            overflow: hidden;
+            z-index: 1000;
+        }
+        .user-dropdown.show { display: block; }
+        .user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 18px;
+            color: #1e2b2f;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .user-dropdown a:hover {
+            background: #f4f9fa;
+        }
+        .user-dropdown a:last-child {
+            border-bottom: none;
+            color: #ff6b6b;
+        }
+        .user-dropdown a i {
+            width: 20px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <header class="header">
@@ -15,15 +76,11 @@
             <a href="yourpage.html">حسابي</a>
             <a href="admin.html" style="color:#ff6b6b;">الإدارة</a>
             <div class="header-user" id="header-user" style="display:none;" onclick="toggleDropdown(event)">
-                <img id="header-avatar" src="img/default-avatar.jpg" alt="avatar" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #b0e0e6;" />
-                <span class="username" id="header-username" style="color:#d4e9ed;font-weight:600;font-size:0.9em;display:none;">مستخدم</span>
-                <div class="user-dropdown" id="user-dropdown" style="position:absolute;top:45px;right:0;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);min-width:160px;display:none;overflow:hidden;z-index:1000;">
-                    <a href="yourpage.html" style="display:flex;align-items:center;gap:10px;padding:10px 18px;color:#1e2b2f;text-decoration:none;font-weight:500;font-size:0.9em;border-bottom:1px solid #f0f0f0;">
-                        <i class="fas fa-user-edit"></i> حسابي
-                    </a>
-                    <a href="#" onclick="event.stopPropagation(); logoutUser();" style="display:flex;align-items:center;gap:10px;padding:10px 18px;color:#ff6b6b;text-decoration:none;font-weight:500;font-size:0.9em;">
-                        <i class="fas fa-sign-out-alt"></i> تسجيل خروج
-                    </a>
+                <img id="header-avatar" src="img/default-avatar.jpg" alt="avatar" />
+                <span class="username" id="header-username">مستخدم</span>
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="yourpage.html"><i class="fas fa-user-edit"></i> حسابي</a>
+                    <a href="#" onclick="event.stopPropagation(); logoutUser();"><i class="fas fa-sign-out-alt"></i> تسجيل خروج</a>
                 </div>
             </div>
         </nav>
@@ -52,7 +109,9 @@
     <section class="viral" id="viral">
         <h2 class="title" id="viral-title">🎯 الموهوبون</h2>
         <p id="viral-note" style="display:none; text-align:center; color:var(--color-primary); font-weight:400; margin:-15px 0 30px;"></p>
-        <div class="content" id="viral-content"></div>
+        <div class="content" id="viral-content">
+            <p style="color:#5a6f73; text-align:center; width:100%;">اختر تخصصاً من الأعلى لعرض الموهوبين</p>
+        </div>
     </section>
 
     <footer class="site-footer">
@@ -65,6 +124,7 @@
     </footer>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="common.js"></script>
@@ -81,7 +141,7 @@
         });
 
         // ===== تحديث رأس الصفحة =====
-        function updateHeader() {
+        function updateHeaderUI() {
             const user = getCurrentUser();
             if (user) {
                 document.getElementById('header-user').style.display = 'flex';
@@ -124,6 +184,8 @@
 
         // ===== عرض الموهوبين حسب التخصص (مرتبين حسب المشاهدات) =====
         async function showCategory(categoryId) {
+            console.log('🔍 عرض التخصص:', categoryId);
+            
             try {
                 const users = await loadFromFirebase('users');
                 const container = document.getElementById('viral-content');
@@ -133,9 +195,12 @@
                     return;
                 }
                 
+                // فلترة حسب التخصص والحالة
                 let freelancers = Object.values(users).filter(u => 
                     u.status === 'approved' && u.categoryId === categoryId
                 );
+                
+                console.log('👤 عدد الموهوبين:', freelancers.length);
                 
                 // ترتيب تنازلي حسب المشاهدات
                 freelancers.sort((a, b) => (b.views || 0) - (a.views || 0));
@@ -171,9 +236,15 @@
                     `;
                 });
                 container.innerHTML = html;
+                
+                // تمرير إلى قسم الموهوبين
                 document.getElementById('viral').scrollIntoView({ behavior: 'smooth' });
+                
             } catch (error) {
                 console.error('Error showing category:', error);
+                document.getElementById('viral-content').innerHTML = `
+                    <p style="color:#ff6b6b; text-align:center; width:100%;">❌ حدث خطأ في تحميل الموهوبين</p>
+                `;
             }
         }
 
@@ -204,9 +275,15 @@
 
         // ===== تحميل الصفحة =====
         document.addEventListener('DOMContentLoaded', function() {
-            updateHeader();
+            updateHeaderUI();
             loadServices();
             loadTexts();
+            
+            // التحقق من تسجيل الدخول
+            const user = getCurrentUser();
+            if (user) {
+                updateHeaderUI();
+            }
         });
     </script>
 </body>

@@ -1,23 +1,10 @@
 // =====================================================
-// auth.js — تسجيل دخول حقيقي مع تذكر الجلسة
+// auth.js — تسجيل دخول حقيقي
 // =====================================================
 
-let discordOAuthConfig = null;
 let currentAuthUser = null;
 
-// ===== تحميل إعدادات Discord =====
-async function getDiscordOAuthConfig() {
-    if (discordOAuthConfig) return discordOAuthConfig;
-    try {
-        discordOAuthConfig = await loadFromFirebase('site_settings/discord_oauth');
-    } catch (error) {
-        console.error('Error loading discord config:', error);
-        discordOAuthConfig = null;
-    }
-    return discordOAuthConfig;
-}
-
-// ===== تسجيل الدخول بـ Google (معالج الأخطاء) =====
+// ===== تسجيل الدخول بـ Google =====
 async function signInWithGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -39,7 +26,6 @@ async function signInWithGoogle() {
             provider: 'google'
         };
 
-        // حفظ الجلسة
         sessionStorage.setItem('vp_user', JSON.stringify(userData));
         currentAuthUser = userData;
         
@@ -50,8 +36,6 @@ async function signInWithGoogle() {
         console.error('Google auth error:', error);
         if (error.code === 'auth/popup-closed-by-user') {
             showNotification('تم إغلاق نافذة تسجيل الدخول', 'info');
-        } else if (error.code === 'auth/account-exists-with-different-credential') {
-            showNotification('❌ هذا البريد مسجل بطريقة دخول مختلفة', 'error');
         } else {
             showNotification('❌ فشل تسجيل الدخول بـ Google', 'error');
         }
@@ -99,12 +83,25 @@ async function signInWithGithub() {
     }
 }
 
-// ===== تسجيل الدخول بـ Discord (إعادة توجيه) =====
+// ===== تسجيل الدخول بـ Discord =====
+let discordOAuthConfig = null;
+
+async function getDiscordOAuthConfig() {
+    if (discordOAuthConfig) return discordOAuthConfig;
+    try {
+        discordOAuthConfig = await loadFromFirebase('site_settings/discord_oauth');
+    } catch (error) {
+        console.error('Error loading discord config:', error);
+        discordOAuthConfig = null;
+    }
+    return discordOAuthConfig;
+}
+
 async function signInWithDiscord() {
     try {
         const cfg = await getDiscordOAuthConfig();
         if (!cfg || !cfg.client_id || !cfg.redirect_uri) {
-            showNotification('❌ لم يتم إعداد Discord بعد من لوحة الإدارة', 'error');
+            showNotification('❌ لم يتم إعداد Discord بعد', 'error');
             return null;
         }
         
@@ -127,7 +124,6 @@ async function signInWithDiscord() {
     }
 }
 
-// ===== معالجة العودة من Discord =====
 async function handleDiscordRedirect() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -169,12 +165,12 @@ async function handleDiscordRedirect() {
         
     } catch (error) {
         console.error('Discord redirect error:', error);
-        showNotification('❌ حدث خطأ أثناء الاتصال بـ Discord', 'error');
+        showNotification('❌ حدث خطأ', 'error');
         return null;
     }
 }
 
-// ===== تسجيل الدخول بالبريد فقط =====
+// ===== تسجيل الدخول بالبريد =====
 async function loginWithEmailOnly(email) {
     if (!email) {
         showNotification('❌ يرجى إدخال بريد إلكتروني', 'error');
@@ -188,7 +184,6 @@ async function loginWithEmailOnly(email) {
     }
     
     try {
-        // البحث عن مستخدم بهذا البريد
         const users = await loadFromFirebase('users');
         let existingUser = null;
         
@@ -212,7 +207,6 @@ async function loginWithEmailOnly(email) {
             return userData;
         }
         
-        // مستخدم جديد
         const namePart = email.split('@')[0];
         const userData = {
             uid: `email_${slugifyKey(email)}`,
@@ -228,7 +222,7 @@ async function loginWithEmailOnly(email) {
         
     } catch (error) {
         console.error('Email login error:', error);
-        showNotification('❌ حدث خطأ أثناء تسجيل الدخول', 'error');
+        showNotification('❌ حدث خطأ', 'error');
         return null;
     }
 }
@@ -244,7 +238,6 @@ async function authWithProvider(provider) {
 // ===== الحصول على المستخدم الحالي =====
 function getCurrentUser() {
     if (currentAuthUser) return currentAuthUser;
-    
     try {
         const stored = sessionStorage.getItem('vp_user');
         if (stored) {
@@ -261,16 +254,11 @@ function getCurrentUser() {
 function logoutUser() {
     sessionStorage.removeItem('vp_user');
     currentAuthUser = null;
-    
-    // تسجيل الخروج من Firebase Auth أيضاً
     if (vpAuth) {
         vpAuth.signOut().catch(console.error);
     }
-    
     showNotification('👋 تم تسجيل الخروج', 'info');
-    setTimeout(() => {
-        window.location.reload();
-    }, 500);
+    setTimeout(() => window.location.reload(), 500);
 }
 
 // ===== التحقق من حالة المستخدم =====

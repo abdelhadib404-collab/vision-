@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
     <title>Vision+ | حسابي</title>
     <style>
+        /* نفس الإضافات السابقة */
         .header-user {
             display: flex;
             align-items: center;
@@ -56,20 +57,11 @@
             text-decoration: none;
             font-weight: 500;
             font-size: 0.9em;
-            transition: 0.2s;
             border-bottom: 1px solid #f0f0f0;
         }
-        .user-dropdown a:hover {
-            background: #f4f9fa;
-        }
-        .user-dropdown a:last-child {
-            border-bottom: none;
-            color: #ff6b6b;
-        }
-        .user-dropdown a i {
-            width: 20px;
-            text-align: center;
-        }
+        .user-dropdown a:hover { background: #f4f9fa; }
+        .user-dropdown a:last-child { border-bottom: none; color: #ff6b6b; }
+        .user-dropdown a i { width: 20px; text-align: center; }
 
         .dashboard-section {
             background: #f4f9fa;
@@ -126,9 +118,7 @@
             object-fit: cover;
             border-radius: 10px;
         }
-        .work-item .work-info {
-            flex: 1;
-        }
+        .work-item .work-info { flex: 1; }
         .work-item .work-info h4 {
             font-weight: 700;
             color: #1e2b2f;
@@ -497,7 +487,6 @@
                                 <i class="fas fa-arrow-left"></i> دخول
                             </button>
                         </div>
-                        <span class="field-hint" id="email-login-hint"></span>
                     </div>
 
                     <div id="auth-or-divider">— أو —</div>
@@ -722,26 +711,12 @@
     <script src="auth.js"></script>
     <script src="yourpage-script.js"></script>
     <script>
-        // ===== إظهار/إخفاء القائمة المنسدلة =====
         function toggleDropdown(event) {
             event.stopPropagation();
-            const dropdown = document.getElementById('user-dropdown');
-            dropdown.classList.toggle('show');
+            document.getElementById('user-dropdown').classList.toggle('show');
         }
-
-        // إغلاق القائمة عند النقر خارجها
         document.addEventListener('click', function() {
             document.getElementById('user-dropdown').classList.remove('show');
-        });
-
-        // تحديث رأس الصفحة عند تغيير المستخدم
-        document.addEventListener('DOMContentLoaded', function() {
-            const user = getCurrentUser();
-            if (user) {
-                document.getElementById('header-user').style.display = 'flex';
-                document.getElementById('header-avatar').src = user.photoURL;
-                document.getElementById('header-username').textContent = user.displayName;
-            }
         });
     </script>
 </body>

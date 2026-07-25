@@ -1,8 +1,7 @@
 // =====================================================
-// firebase-config.js — تهيئة Firebase
+// firebase-config.js
 // =====================================================
 
-// ⚠️ استبدل هذه القيم ببيانات مشروعك من Firebase Console
 const firebaseConfig = {
     apiKey: "AIzaSyDummyKey123456789",
     authDomain: "vision-5d2d8.firebaseapp.com",
@@ -13,15 +12,12 @@ const firebaseConfig = {
     appId: "1:123456789012:web:abcdef123456"
 };
 
-// تهيئة Firebase (مرة واحدة)
+// تهيئة Firebase
 if (!firebase.apps || !firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// قاعدة البيانات
 const db = firebase.database();
-
-// المصادقة (Authentication)
 const vpAuth = firebase.auth();
 
 // ===== دوال القراءة والكتابة =====
@@ -30,7 +26,7 @@ async function loadFromFirebase(path) {
         const snapshot = await db.ref(path).once('value');
         return snapshot.val();
     } catch (error) {
-        console.error(`❌ Firebase read error at "${path}":`, error);
+        console.error('Firebase read error:', error);
         throw error;
     }
 }
@@ -40,7 +36,7 @@ async function saveToFirebase(path, value) {
         await db.ref(path).set(value);
         return true;
     } catch (error) {
-        console.error(`❌ Firebase write error at "${path}":`, error);
+        console.error('Firebase write error:', error);
         throw error;
     }
 }
@@ -50,28 +46,15 @@ async function updateToFirebase(path, value) {
         await db.ref(path).update(value);
         return true;
     } catch (error) {
-        console.error(`❌ Firebase update error at "${path}":`, error);
+        console.error('Firebase update error:', error);
         throw error;
     }
 }
 
-async function pushToFirebase(path, value) {
-    try {
-        const ref = db.ref(path).push();
-        await ref.set(value);
-        return ref.key;
-    } catch (error) {
-        console.error(`❌ Firebase push error at "${path}":`, error);
-        throw error;
-    }
-}
-
-// ===== أداة مساعدة =====
 function slugifyKey(text) {
     return String(text).trim().toLowerCase().replace(/[.#$\[\]\/\s]+/g, '_');
 }
 
-// ===== إشعارات =====
 function showNotification(message, type = 'info') {
     const existing = document.querySelectorAll('.toast-notification');
     existing.forEach(el => el.remove());

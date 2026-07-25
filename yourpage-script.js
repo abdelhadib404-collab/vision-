@@ -1,5 +1,5 @@
 // =====================================================
-// yourpage-script.js — لوحة حسابي
+// yourpage-script.js
 // =====================================================
 
 let currentUser = null;
@@ -15,9 +15,6 @@ async function initEmailJS() {
         emailConfig = await loadFromFirebase('email_config');
         if (emailConfig?.public_key) {
             emailjs.init(emailConfig.public_key);
-            console.log('✅ EmailJS initialized');
-        } else {
-            console.warn('⚠️ EmailJS not configured');
         }
     } catch (error) {
         console.error('Error loading email config:', error);
@@ -28,7 +25,6 @@ async function initEmailJS() {
 async function initPage() {
     await initEmailJS();
     
-    // معالجة العودة من Discord
     const discordResult = await handleDiscordRedirect();
     if (discordResult) {
         currentUser = discordResult;
@@ -36,7 +32,6 @@ async function initPage() {
         return;
     }
     
-    // التحقق من جلسة المستخدم
     const user = getCurrentUser();
     if (user) {
         currentUser = user;
@@ -44,7 +39,6 @@ async function initPage() {
         return;
     }
     
-    // عرض شاشة تسجيل الدخول
     document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
     document.getElementById('step-auth').style.display = 'block';
 }
@@ -58,13 +52,28 @@ function showAuthSuccess() {
     document.getElementById('auth-email').textContent = currentUser.email || 'لا يوجد بريد ظاهر';
     document.getElementById('auth-user-info').style.display = 'block';
     
-    // إخفاء خيارات الدخول
     document.getElementById('email-login-box').style.display = 'none';
     document.getElementById('auth-or-divider').style.display = 'none';
     document.getElementById('auth-buttons').style.display = 'none';
     
-    // التحقق من حالة المستخدم
+    // تحديث رأس الصفحة
+    updateHeaderUI();
+    
     checkUserAndRedirect();
+}
+
+// ===== تحديث رأس الصفحة =====
+function updateHeaderUI() {
+    const user = getCurrentUser();
+    if (user) {
+        const headerUser = document.getElementById('header-user');
+        if (headerUser) {
+            headerUser.style.display = 'flex';
+            document.getElementById('header-avatar').src = user.photoURL;
+            document.getElementById('header-username').textContent = user.displayName;
+            document.getElementById('header-username').style.display = 'inline';
+        }
+    }
 }
 
 // ===== التحقق من حالة المستخدم =====
@@ -87,7 +96,6 @@ async function checkUserAndRedirect() {
             }
         }
         
-        // مستخدم جديد أو مرفوض → نعرض خطوة التسجيل
         goToStep2();
         
     } catch (error) {
@@ -110,13 +118,16 @@ async function handleEmailLogin() {
 
 // ===== تسجيل الدخول بمزود =====
 async function handleProviderLogin(provider) {
-    document.getElementById('auth-buttons').style.display = 'none';
-    document.getElementById('auth-loading').style.display = 'flex';
+    const buttons = document.getElementById('auth-buttons');
+    const loading = document.getElementById('auth-loading');
+    
+    buttons.style.display = 'none';
+    loading.style.display = 'flex';
     
     const result = await authWithProvider(provider);
     
-    document.getElementById('auth-loading').style.display = 'none';
-    document.getElementById('auth-buttons').style.display = 'flex';
+    loading.style.display = 'none';
+    buttons.style.display = 'flex';
     
     if (result) {
         currentUser = result;
@@ -368,13 +379,12 @@ function readFileAsDataURL(file) {
     });
 }
 
-// ===== إرسال إيميل للمسؤول (مصلح) =====
+// ===== إرسال إيميل للمسؤول =====
 async function sendEmailToAdmin(data) {
     try {
-        // تحميل الإعدادات مرة أخرى للتأكد
         const config = await loadFromFirebase('email_config');
         if (!config || !config.service_id || !config.template_id) {
-            console.warn('⚠️ Email not configured, skipping email');
+            console.warn('⚠️ Email not configured');
             return false;
         }
         
@@ -396,19 +406,11 @@ async function sendEmailToAdmin(data) {
             admin_link: `${window.location.origin}/admin.html`
         };
         
-        console.log('📧 Sending email with params:', templateParams);
-        
-        const response = await emailjs.send(
-            config.service_id,
-            config.template_id,
-            templateParams
-        );
-        
-        console.log('✅ Email sent successfully:', response);
+        await emailjs.send(config.service_id, config.template_id, templateParams);
         return true;
         
     } catch (error) {
-        console.error('❌ Email error:', error);
+        console.error('Email error:', error);
         return false;
     }
 }
@@ -602,6 +604,7 @@ function handleLogout() {
 document.addEventListener('DOMContentLoaded', function() {
     initPage();
     loadWaitingText();
+    updateHeaderUI();
 
     // أحداث الإدخال
     const emailLoginInput = document.getElementById('email-login-input');
@@ -681,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// تصدير الدوال للاستخدام في HTML
+// تصدير الدوال
 window.handleEmailLogin = handleEmailLogin;
 window.handleProviderLogin = handleProviderLogin;
 window.goToStep3 = goToStep3;
