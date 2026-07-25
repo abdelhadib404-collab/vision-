@@ -86,6 +86,19 @@
                     <h2><i class="fas fa-user-plus"></i> إنشاء حساب</h2>
                     <p style="color: #5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
                     
+                    <div class="form-group" id="email-login-box" style="text-align:right; margin-bottom:18px;">
+                        <label><i class="fas fa-envelope"></i> أو ادخل مباشرة ببريدك الإلكتروني:</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="email" id="email-login-input" placeholder="example@email.com" style="flex:1; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
+                            <button class="next-btn" style="width:auto; padding:12px 22px; margin:0;" onclick="loginWithEmailOnly()">
+                                <i class="fas fa-arrow-left"></i> دخول
+                            </button>
+                        </div>
+                        <span class="field-hint" id="email-login-hint"></span>
+                    </div>
+
+                    <div id="auth-or-divider" style="text-align:center; color:#5a6f73; font-weight:400; margin:14px 0;">— أو —</div>
+
                     <div class="auth-buttons" id="auth-buttons">
                         <button class="auth-btn google-btn" onclick="authWithProvider('google')">
                             <i class="fa-brands fa-google"></i> تسجيل الدخول بـ Google

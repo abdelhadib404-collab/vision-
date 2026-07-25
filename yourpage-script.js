@@ -60,8 +60,43 @@ function setLoggedInUser(result) {
     document.getElementById('auth-email').textContent = currentUser.email || 'لا يوجد بريد ظاهر';
     document.getElementById('auth-user-info').style.display = 'block';
 
+    // إخفاء طرق الدخول بعد نجاح تسجيل الدخول
+    const emailBox = document.getElementById('email-login-box');
+    const divider = document.getElementById('auth-or-divider');
+    const authButtons = document.getElementById('auth-buttons');
+    if (emailBox) emailBox.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    if (authButtons) authButtons.style.display = 'none';
+
     showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
     checkUserStatus();
+}
+
+// ===== تسجيل الدخول المباشر بالبريد الإلكتروني فقط (بديل عند تعذّر Google/GitHub/Discord) =====
+function loginWithEmailOnly() {
+    const input = document.getElementById('email-login-input');
+    const hint = document.getElementById('email-login-hint');
+    const email = input.value.trim().toLowerCase();
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+        hint.textContent = '❌ يرجى إدخال بريد إلكتروني صحيح';
+        hint.className = 'field-hint bad';
+        return;
+    }
+    hint.textContent = '';
+    hint.className = 'field-hint';
+
+    const namePart = email.split('@')[0];
+    const result = {
+        uid: `email_${slugifyKey(email)}`,
+        email: email,
+        displayName: namePart,
+        photoURL: 'img/default-avatar.jpg',
+        provider: 'email'
+    };
+
+    setLoggedInUser(result);
 }
 
 // ===== التحقق من حالة المستخدم =====
@@ -410,6 +445,14 @@ document.addEventListener('DOMContentLoaded', function() {
             setLoggedInUser(result);
         }
     });
+
+    // الدخول بالضغط على Enter في حقل البريد الإلكتروني المباشر
+    const emailLoginInput = document.getElementById('email-login-input');
+    if (emailLoginInput) {
+        emailLoginInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') loginWithEmailOnly();
+        });
+    }
 
     // التحقق الفوري من اسم المستخدم أثناء الكتابة
     const usernameInput = document.getElementById('username');
