@@ -66,6 +66,81 @@
             width: 20px;
             text-align: center;
         }
+        /* تنسيقات الموهوبين الأكثر شهرة */
+        .top-freelancers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .top-freelancer-card {
+            background: #fff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            transition: 0.3s;
+            cursor: pointer;
+            text-align: center;
+            padding: 20px;
+        }
+        .top-freelancer-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .top-freelancer-card img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #b0e0e6;
+            margin-bottom: 10px;
+        }
+        .top-freelancer-card .name {
+            font-weight: 700;
+            color: #1e2b2f;
+        }
+        .top-freelancer-card .category {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+        }
+        .top-freelancer-card .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #5a6f73;
+        }
+        .top-freelancer-card .stats span i {
+            margin-right: 4px;
+        }
+        .top-freelancer-card .rank {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #b0e0e6;
+            color: #1e2b2f;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8em;
+        }
+        .top-freelancer-card .card-inner {
+            position: relative;
+        }
+        .viral .subtitle {
+            text-align: center;
+            color: var(--color-primary);
+            font-weight: 400;
+            margin-top: -15px;
+            margin-bottom: 25px;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -107,10 +182,12 @@
     </section>
 
     <section class="viral" id="viral">
-        <h2 class="title" id="viral-title">🎯 الموهوبون</h2>
-        <p id="viral-note" style="display:none; text-align:center; color:var(--color-primary); font-weight:400; margin:-15px 0 30px;"></p>
+        <h2 class="title" id="viral-title">🏆 الأكثر شهرة</h2>
+        <p class="subtitle" id="viral-note">أفضل المواهب المختارة من فريقنا</p>
         <div class="content" id="viral-content">
-            <p style="color:#5a6f73; text-align:center; width:100%;">اختر تخصصاً من الأعلى لعرض الموهوبين</p>
+            <div id="top-freelancers-container">
+                <p style="color:#5a6f73; text-align:center; width:100%;">جاري تحميل الموهوبين...</p>
+            </div>
         </div>
     </section>
 
@@ -145,9 +222,11 @@
             const user = getCurrentUser();
             if (user) {
                 document.getElementById('header-user').style.display = 'flex';
-                document.getElementById('header-avatar').src = user.photoURL;
-                document.getElementById('header-username').textContent = user.displayName;
+                document.getElementById('header-avatar').src = user.photoURL || 'img/default-avatar.jpg';
+                document.getElementById('header-username').textContent = user.displayName || 'مستخدم';
                 document.getElementById('header-username').style.display = 'inline';
+            } else {
+                document.getElementById('header-user').style.display = 'none';
             }
         }
 
@@ -189,6 +268,18 @@
             try {
                 const users = await loadFromFirebase('users');
                 const container = document.getElementById('viral-content');
+                const title = document.getElementById('viral-title');
+                const note = document.getElementById('viral-note');
+                
+                // الحصول على اسم التخصص
+                const categories = await loadFromFirebase('categories');
+                const category = categories ? Object.values(categories).find(c => c.id === categoryId) : null;
+                const catName = category ? category.name : categoryId;
+                
+                // تحديث العنوان
+                title.textContent = `📂 ${catName}`;
+                note.textContent = `الموهوبون في مجال ${catName}`;
+                note.style.display = 'block';
                 
                 if (!users) {
                     container.innerHTML = '<p style="color:#5a6f73; text-align:center; width:100%;">لا يوجد موهوبين بعد</p>';
@@ -215,26 +306,25 @@
                     return;
                 }
                 
-                let html = '';
-                freelancers.forEach(f => {
+                let html = `<div class="top-freelancers">`;
+                freelancers.forEach((f, index) => {
                     html += `
-                        <div class="viral-card" onclick="viewProfile('${f.uid}')">
-                            <div class="viral-img">
+                        <div class="top-freelancer-card" onclick="viewProfile('${f.uid}')">
+                            <div class="card-inner">
+                                <div class="rank">#${index + 1}</div>
                                 <img src="${f.profilePic || 'img/default-avatar.jpg'}" alt="${f.username}" />
-                            </div>
-                            <div class="viral-info">
-                                <p class="category">⭐ ${f.username}</p>
-                                <strong class="v-title">
-                                    <span>${f.categoryId}</span>
-                                    <span style="font-weight:400; font-size:0.8em; color:#5a6f73;">
-                                        <i class="fas fa-eye"></i> ${f.views || 0}
-                                    </span>
-                                    <a href="#" class="viralbtn" onclick="event.stopPropagation(); viewProfile('${f.uid}')">عرض</a>
-                                </strong>
+                                <div class="name">${f.username || 'غير معروف'}</div>
+                                <div class="category">${f.categoryId || 'لا يوجد تخصص'}</div>
+                                <div class="stats">
+                                    <span><i class="fas fa-eye"></i> ${f.views || 0}</span>
+                                    <span><i class="fas fa-heart" style="color:#ff6b6b;"></i> ${f.likes || 0}</span>
+                                    <span><i class="fas fa-calendar-alt"></i> ${f.joinedDate || 'غير معروف'}</span>
+                                </div>
                             </div>
                         </div>
                     `;
                 });
+                html += `</div>`;
                 container.innerHTML = html;
                 
                 // تمرير إلى قسم الموهوبين
@@ -243,6 +333,92 @@
             } catch (error) {
                 console.error('Error showing category:', error);
                 document.getElementById('viral-content').innerHTML = `
+                    <p style="color:#ff6b6b; text-align:center; width:100%;">❌ حدث خطأ في تحميل الموهوبين</p>
+                `;
+            }
+        }
+
+        // ===== تحميل الموهوبين الأكثر شهرة =====
+        async function loadTopFreelancers() {
+            const container = document.getElementById('top-freelancers-container');
+            try {
+                const users = await loadFromFirebase('users');
+                if (!users) {
+                    container.innerHTML = '<p style="color:#5a6f73; text-align:center; width:100%;">لا يوجد موهوبين بعد</p>';
+                    return;
+                }
+                
+                // فلترة المستخدمين المفعلين
+                let freelancers = Object.values(users).filter(u => u.status === 'approved');
+                
+                if (freelancers.length === 0) {
+                    container.innerHTML = `
+                        <p style="color:#5a6f73; text-align:center; width:100%;">لا يوجد موهوبين مفعلين بعد</p>
+                    `;
+                    return;
+                }
+                
+                // حساب النقاط: (المشاهدات * 1) + (الإعجابات * 3)
+                freelancers.forEach(f => {
+                    f.score = (f.views || 0) * 1 + (f.likes || 0) * 3;
+                });
+                
+                // ترتيب حسب النقاط ثم المشاهدات
+                freelancers.sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return (b.views || 0) - (a.views || 0);
+                });
+                
+                // أخذ أفضل 6 من كل تخصص (مجموعة واحدة)
+                const categories = {};
+                const topByCategory = {};
+                
+                freelancers.forEach(f => {
+                    const cat = f.categoryId || 'other';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(f);
+                });
+                
+                // أخذ أفضل 6 من كل تخصص
+                let topList = [];
+                Object.keys(categories).forEach(cat => {
+                    const sorted = categories[cat].slice(0, 6);
+                    topList = topList.concat(sorted);
+                });
+                
+                // ترتيب القائمة النهائية حسب النقاط
+                topList.sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return (b.views || 0) - (a.views || 0);
+                });
+                
+                // أخذ أفضل 12 فقط
+                topList = topList.slice(0, 12);
+                
+                let html = `<div class="top-freelancers">`;
+                topList.forEach((f, index) => {
+                    html += `
+                        <div class="top-freelancer-card" onclick="viewProfile('${f.uid}')">
+                            <div class="card-inner">
+                                <div class="rank">🏆 #${index + 1}</div>
+                                <img src="${f.profilePic || 'img/default-avatar.jpg'}" alt="${f.username}" />
+                                <div class="name">${f.username || 'غير معروف'}</div>
+                                <div class="category">${f.categoryId || 'لا يوجد تخصص'}</div>
+                                <div class="stats">
+                                    <span><i class="fas fa-eye"></i> ${f.views || 0}</span>
+                                    <span><i class="fas fa-heart" style="color:#ff6b6b;"></i> ${f.likes || 0}</span>
+                                    <span><i class="fas fa-calendar-alt"></i> ${f.joinedDate || 'غير معروف'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading top freelancers:', error);
+                container.innerHTML = `
                     <p style="color:#ff6b6b; text-align:center; width:100%;">❌ حدث خطأ في تحميل الموهوبين</p>
                 `;
             }
@@ -273,18 +449,35 @@
             }
         }
 
-        // ===== تحميل الصفحة =====
-        document.addEventListener('DOMContentLoaded', function() {
-            updateHeaderUI();
-            loadServices();
-            loadTexts();
+        // ===== مراقبة المصادقة =====
+        function setupAuthListener() {
+            onAuthStateChange((user) => {
+                updateHeaderUI();
+            });
             
-            // التحقق من تسجيل الدخول
+            // التحقق الفوري
             const user = getCurrentUser();
             if (user) {
                 updateHeaderUI();
             }
+        }
+
+        // ===== تحميل الصفحة =====
+        document.addEventListener('DOMContentLoaded', function() {
+            setupAuthListener();
+            loadServices();
+            loadTexts();
+            loadTopFreelancers();
+            
+            // تحديث كل 5 دقائق
+            setInterval(loadTopFreelancers, 300000);
         });
+
+        // تصدير الدوال
+        window.showCategory = showCategory;
+        window.viewProfile = viewProfile;
+        window.toggleDropdown = toggleDropdown;
+        window.updateHeaderUI = updateHeaderUI;
     </script>
 </body>
 </html>

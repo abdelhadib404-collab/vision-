@@ -1,10 +1,48 @@
 // =====================================================
-// auth.js — تسجيل دخول حقيقي
+// auth.js — تسجيل دخول حقيقي (معدل)
 // =====================================================
 
 let currentAuthUser = null;
+let authStateListeners = [];
 
-// ===== تسجيل الدخول بـ Google =====
+// ===== الحصول على المستخدم الحالي من الجلسة =====
+function getCurrentUser() {
+    if (currentAuthUser) return currentAuthUser;
+    try {
+        const stored = sessionStorage.getItem('vp_user');
+        if (stored) {
+            currentAuthUser = JSON.parse(stored);
+            return currentAuthUser;
+        }
+    } catch (error) {
+        console.error('Error getting current user:', error);
+    }
+    return null;
+}
+
+// ===== حفظ المستخدم في الجلسة =====
+function setCurrentUser(user) {
+    currentAuthUser = user;
+    if (user) {
+        sessionStorage.setItem('vp_user', JSON.stringify(user));
+    } else {
+        sessionStorage.removeItem('vp_user');
+    }
+    notifyAuthListeners(user);
+}
+
+// ===== مستمعو حالة المصادقة =====
+function onAuthStateChange(callback) {
+    authStateListeners.push(callback);
+    const user = getCurrentUser();
+    if (user) callback(user);
+}
+
+function notifyAuthListeners(user) {
+    authStateListeners.forEach(cb => cb(user));
+}
+
+// ===== تسجيل الدخول بـ Google (معدل) =====
 async function signInWithGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -18,17 +56,22 @@ async function signInWithGoogle() {
             return null;
         }
 
+        // التحقق من البريد الإلكتروني
+        if (!user.email) {
+            showNotification('❌ البريد الإلكتروني غير متوفر', 'error');
+            return null;
+        }
+
         const userData = {
             uid: user.uid,
             email: user.email,
-            displayName: user.displayName || 'مستخدم Google',
+            displayName: user.displayName || user.email.split('@')[0],
             photoURL: user.photoURL || 'img/default-avatar.jpg',
-            provider: 'google'
+            provider: 'google',
+            emailVerified: user.emailVerified
         };
 
-        sessionStorage.setItem('vp_user', JSON.stringify(userData));
-        currentAuthUser = userData;
-        
+        setCurrentUser(userData);
         showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
         return userData;
         
@@ -36,17 +79,21 @@ async function signInWithGoogle() {
         console.error('Google auth error:', error);
         if (error.code === 'auth/popup-closed-by-user') {
             showNotification('تم إغلاق نافذة تسجيل الدخول', 'info');
+        } else if (error.code === 'auth/unauthorized-domain') {
+            showNotification('❌ النطاق غير مصرح به في Firebase Console', 'error');
         } else {
-            showNotification('❌ فشل تسجيل الدخول بـ Google', 'error');
+            showNotification('❌ فشل تسجيل الدخول بـ Google: ' + error.message, 'error');
         }
         return null;
     }
 }
 
-// ===== تسجيل الدخول بـ GitHub =====
+// ===== تسجيل الدخول بـ GitHub (معدل) =====
 async function signInWithGithub() {
     try {
         const provider = new firebase.auth.GithubAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        
         const result = await vpAuth.signInWithPopup(provider);
         const user = result.user;
         
@@ -55,20 +102,25 @@ async function signInWithGithub() {
             return null;
         }
 
+        // GitHub قد لا يوفر البريد دائماً
         const email = user.email || 
             (result.additionalUserInfo?.username ? `${result.additionalUserInfo.username}@github.user` : null);
+
+        if (!email) {
+            showNotification('❌ البريد الإلكتروني غير متوفر من GitHub', 'error');
+            return null;
+        }
 
         const userData = {
             uid: user.uid,
             email: email,
-            displayName: user.displayName || result.additionalUserInfo?.username || 'مستخدم GitHub',
+            displayName: user.displayName || result.additionalUserInfo?.username || email.split('@')[0],
             photoURL: user.photoURL || 'img/default-avatar.jpg',
-            provider: 'github'
+            provider: 'github',
+            emailVerified: user.emailVerified || false
         };
 
-        sessionStorage.setItem('vp_user', JSON.stringify(userData));
-        currentAuthUser = userData;
-        
+        setCurrentUser(userData);
         showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
         return userData;
         
@@ -77,13 +129,13 @@ async function signInWithGithub() {
         if (error.code === 'auth/popup-closed-by-user') {
             showNotification('تم إغلاق نافذة تسجيل الدخول', 'info');
         } else {
-            showNotification('❌ فشل تسجيل الدخول بـ GitHub', 'error');
+            showNotification('❌ فشل تسجيل الدخول بـ GitHub: ' + error.message, 'error');
         }
         return null;
     }
 }
 
-// ===== تسجيل الدخول بـ Discord =====
+// ===== تسجيل الدخول بـ Discord (معدل) =====
 let discordOAuthConfig = null;
 
 async function getDiscordOAuthConfig() {
@@ -106,6 +158,7 @@ async function signInWithDiscord() {
         }
         
         sessionStorage.setItem('vp_pending_discord', 'true');
+        sessionStorage.setItem('vp_discord_redirect', window.location.href);
         
         const authUrl = new URL('https://discord.com/oauth2/authorize');
         authUrl.searchParams.set('client_id', cfg.client_id);
@@ -128,11 +181,15 @@ async function handleDiscordRedirect() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const pending = sessionStorage.getItem('vp_pending_discord');
+    const redirectUrl = sessionStorage.getItem('vp_discord_redirect');
     
     if (!code || !pending) return null;
     
     sessionStorage.removeItem('vp_pending_discord');
-    window.history.replaceState({}, document.title, window.location.pathname);
+    sessionStorage.removeItem('vp_discord_redirect');
+    
+    // تنظيف الـ URL
+    window.history.replaceState({}, document.title, redirectUrl || window.location.pathname);
     
     try {
         const cfg = await getDiscordOAuthConfig();
@@ -141,11 +198,13 @@ async function handleDiscordRedirect() {
             return null;
         }
         
+        showNotification('⏳ جاري تسجيل الدخول عبر Discord...', 'info');
+        
         const resp = await fetch(`${cfg.function_url}?code=${encodeURIComponent(code)}`);
         const data = await resp.json();
         
         if (!data || !data.id) {
-            showNotification('❌ فشل تسجيل الدخول عبر Discord', 'error');
+            showNotification('❌ فشل تسجيل الدخول عبر Discord: ' + (data.error || 'unknown'), 'error');
             return null;
         }
         
@@ -154,23 +213,22 @@ async function handleDiscordRedirect() {
             email: data.email || `${data.username}@discord.user`,
             displayName: data.username || 'مستخدم Discord',
             photoURL: data.avatar || 'img/default-avatar.jpg',
-            provider: 'discord'
+            provider: 'discord',
+            emailVerified: false
         };
         
-        sessionStorage.setItem('vp_user', JSON.stringify(userData));
-        currentAuthUser = userData;
-        
+        setCurrentUser(userData);
         showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
         return userData;
         
     } catch (error) {
         console.error('Discord redirect error:', error);
-        showNotification('❌ حدث خطأ', 'error');
+        showNotification('❌ حدث خطأ في تسجيل الدخول عبر Discord', 'error');
         return null;
     }
 }
 
-// ===== تسجيل الدخول بالبريد =====
+// ===== تسجيل الدخول بالبريد فقط (معدل) =====
 async function loginWithEmailOnly(email) {
     if (!email) {
         showNotification('❌ يرجى إدخال بريد إلكتروني', 'error');
@@ -184,45 +242,54 @@ async function loginWithEmailOnly(email) {
     }
     
     try {
+        // البحث عن مستخدم موجود
         const users = await loadFromFirebase('users');
         let existingUser = null;
+        let existingUid = null;
         
         if (users) {
-            existingUser = Object.values(users).find(u => 
-                u.email && u.email.toLowerCase() === email.toLowerCase()
-            );
+            const entries = Object.entries(users);
+            for (const [uid, u] of entries) {
+                if (u.email && u.email.toLowerCase() === email.toLowerCase()) {
+                    existingUser = u;
+                    existingUid = uid;
+                    break;
+                }
+            }
         }
         
-        if (existingUser) {
+        if (existingUser && existingUid) {
             const userData = {
-                uid: existingUser.uid,
+                uid: existingUid,
                 email: existingUser.email,
-                displayName: existingUser.displayName || email.split('@')[0],
+                displayName: existingUser.displayName || existingUser.username || email.split('@')[0],
                 photoURL: existingUser.profilePic || 'img/default-avatar.jpg',
-                provider: 'email'
+                provider: 'email',
+                emailVerified: true
             };
-            sessionStorage.setItem('vp_user', JSON.stringify(userData));
-            currentAuthUser = userData;
+            setCurrentUser(userData);
             showNotification('✅ مرحباً بعودتك!', 'success');
             return userData;
         }
         
+        // مستخدم جديد
         const namePart = email.split('@')[0];
+        const uid = `email_${slugifyKey(email)}_${Date.now()}`;
         const userData = {
-            uid: `email_${slugifyKey(email)}`,
+            uid: uid,
             email: email,
             displayName: namePart,
             photoURL: 'img/default-avatar.jpg',
-            provider: 'email'
+            provider: 'email',
+            emailVerified: true
         };
-        sessionStorage.setItem('vp_user', JSON.stringify(userData));
-        currentAuthUser = userData;
+        setCurrentUser(userData);
         showNotification('✅ تم تسجيل الدخول بنجاح!', 'success');
         return userData;
         
     } catch (error) {
         console.error('Email login error:', error);
-        showNotification('❌ حدث خطأ', 'error');
+        showNotification('❌ حدث خطأ: ' + error.message, 'error');
         return null;
     }
 }
@@ -235,28 +302,16 @@ async function authWithProvider(provider) {
     return null;
 }
 
-// ===== الحصول على المستخدم الحالي =====
-function getCurrentUser() {
-    if (currentAuthUser) return currentAuthUser;
+// ===== تسجيل الخروج =====
+async function logoutUser() {
     try {
-        const stored = sessionStorage.getItem('vp_user');
-        if (stored) {
-            currentAuthUser = JSON.parse(stored);
-            return currentAuthUser;
+        if (vpAuth) {
+            await vpAuth.signOut();
         }
     } catch (error) {
-        console.error('Error getting current user:', error);
+        console.error('Sign out error:', error);
     }
-    return null;
-}
-
-// ===== تسجيل الخروج =====
-function logoutUser() {
-    sessionStorage.removeItem('vp_user');
-    currentAuthUser = null;
-    if (vpAuth) {
-        vpAuth.signOut().catch(console.error);
-    }
+    setCurrentUser(null);
     showNotification('👋 تم تسجيل الخروج', 'info');
     setTimeout(() => window.location.reload(), 500);
 }
@@ -271,3 +326,42 @@ async function checkUserStatus(uid) {
         return null;
     }
 }
+
+// ===== مراقبة حالة المصادقة من Firebase =====
+if (vpAuth) {
+    vpAuth.onAuthStateChanged(async (firebaseUser) => {
+        if (firebaseUser) {
+            const userData = getCurrentUser();
+            if (!userData || userData.uid !== firebaseUser.uid) {
+                const user = {
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'مستخدم',
+                    photoURL: firebaseUser.photoURL || 'img/default-avatar.jpg',
+                    provider: firebaseUser.providerData?.[0]?.providerId || 'unknown',
+                    emailVerified: firebaseUser.emailVerified
+                };
+                setCurrentUser(user);
+            }
+        } else {
+            // المستخدم غير مسجل دخول في Firebase
+            const sessionUser = getCurrentUser();
+            if (sessionUser && sessionUser.provider !== 'email') {
+                setCurrentUser(null);
+            }
+        }
+    });
+}
+
+// تصدير الدوال للاستخدام العام
+window.getCurrentUser = getCurrentUser;
+window.setCurrentUser = setCurrentUser;
+window.signInWithGoogle = signInWithGoogle;
+window.signInWithGithub = signInWithGithub;
+window.signInWithDiscord = signInWithDiscord;
+window.handleDiscordRedirect = handleDiscordRedirect;
+window.loginWithEmailOnly = loginWithEmailOnly;
+window.authWithProvider = authWithProvider;
+window.logoutUser = logoutUser;
+window.checkUserStatus = checkUserStatus;
+window.onAuthStateChange = onAuthStateChange;

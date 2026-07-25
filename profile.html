@@ -142,6 +142,49 @@
             font-size: 0.85em;
             margin: 0;
         }
+        /* زر الإعجاب */
+        .like-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            border-radius: 50px;
+            border: 2px solid #ff6b6b;
+            background: transparent;
+            color: #ff6b6b;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1em;
+        }
+        .like-btn:hover {
+            background: #ff6b6b;
+            color: #fff;
+            transform: scale(1.05);
+        }
+        .like-btn.liked {
+            background: #ff6b6b;
+            color: #fff;
+        }
+        .profile-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .profile-stats span {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.9em;
+        }
+        .profile-stats span i {
+            margin-right: 4px;
+        }
+        .joined-date {
+            font-weight: 400;
+            color: #5a6f73;
+            font-size: 0.85em;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
@@ -179,6 +222,9 @@
     <script src="firebase-config.js"></script>
     <script src="common.js"></script>
     <script>
+        let profileUserId = null;
+        let currentLiked = false;
+
         async function loadProfile() {
             const params = new URLSearchParams(window.location.search);
             const uid = params.get('uid');
@@ -193,6 +239,8 @@
                 `;
                 return;
             }
+            
+            profileUserId = uid;
             
             try {
                 const user = await loadFromFirebase(`users/${uid}`);
@@ -227,6 +275,31 @@
                     `;
                 }
                 
+                // تنسيق تاريخ الانضمام
+                const joinedDate = user.createdAt ? new Date(user.createdAt) : null;
+                const joinedDateStr = joinedDate ? joinedDate.toLocaleDateString('ar-DZ', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }) : 'غير معروف';
+                
+                // حساب العمر (عدد الأيام)
+                let daysSince = '';
+                if (joinedDate) {
+                    const diff = Math.floor((Date.now() - joinedDate.getTime()) / (1000 * 60 * 60 * 24));
+                    daysSince = diff > 0 ? ` (منذ ${diff} يوم)` : ' (اليوم)';
+                }
+                
+                // التحقق من حالة الإعجاب
+                const currentUser = getCurrentUser();
+                let likedByUser = false;
+                if (currentUser) {
+                    const likes = await loadFromFirebase(`likes/${uid}`);
+                    likedByUser = likes && likes[currentUser.uid];
+                }
+                
+                currentLiked = likedByUser;
+                
                 document.getElementById('profile-content').innerHTML = `
                     <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> العودة</a>
                     <img src="${user.bannerPic || 'img/default-banner.jpg'}" class="profile-banner" />
@@ -235,8 +308,18 @@
                         <div>
                             <h1 class="profile-name">${user.username || 'غير معروف'}</h1>
                             <span class="profile-category">${user.categoryId || 'لا يوجد تخصص'}</span>
-                            <div style="margin-top:10px;">
-                                ${user.views ? `<span style="color:#5a6f73; font-weight:400;">👁️ ${user.views} مشاهدة</span>` : ''}
+                            <div class="profile-stats">
+                                <span><i class="fas fa-eye"></i> ${user.views || 0} مشاهدة</span>
+                                <span><i class="fas fa-heart" style="color:#ff6b6b;"></i> ${user.likes || 0} إعجاب</span>
+                            </div>
+                            <div class="joined-date">
+                                <i class="fas fa-calendar-alt"></i> انضم في ${joinedDateStr} ${daysSince}
+                            </div>
+                            <div style="margin-top:12px;">
+                                <button class="like-btn ${likedByUser ? 'liked' : ''}" onclick="toggleLike('${uid}')">
+                                    <i class="fas fa-heart"></i> 
+                                    ${likedByUser ? 'أعجبتني' : 'أعجبني'}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -272,8 +355,13 @@
                     </div>
                 `;
                 
-                // زيادة المشاهدات
-                await saveToFirebase(`users/${uid}/views`, (user.views || 0) + 1);
+                // زيادة المشاهدات (مرة واحدة لكل زائر فريد)
+                const viewKey = `view_${uid}_${Date.now()}`;
+                const viewed = sessionStorage.getItem(viewKey);
+                if (!viewed) {
+                    await saveToFirebase(`users/${uid}/views`, (user.views || 0) + 1);
+                    sessionStorage.setItem(viewKey, 'true');
+                }
                 
             } catch (error) {
                 console.error('Error loading profile:', error);
@@ -287,8 +375,76 @@
             }
         }
 
+        // ===== تبديل الإعجاب =====
+        async function toggleLike(uid) {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                showNotification('❌ يرجى تسجيل الدخول أولاً', 'error');
+                return;
+            }
+            
+            try {
+                const user = await loadFromFirebase(`users/${uid}`);
+                if (!user) {
+                    showNotification('❌ المستخدم غير موجود', 'error');
+                    return;
+                }
+                
+                // التحقق من حالة الإعجاب الحالية
+                const likes = await loadFromFirebase(`likes/${uid}`) || {};
+                const userLiked = !!likes[currentUser.uid];
+                
+                if (userLiked) {
+                    // إزالة الإعجاب
+                    await db.ref(`likes/${uid}/${currentUser.uid}`).remove();
+                    await saveToFirebase(`users/${uid}/likes`, Math.max(0, (user.likes || 0) - 1));
+                    currentLiked = false;
+                    showNotification('💔 تم إزالة الإعجاب', 'info');
+                } else {
+                    // إضافة إعجاب
+                    await saveToFirebase(`likes/${uid}/${currentUser.uid}`, {
+                        uid: currentUser.uid,
+                        name: currentUser.displayName || 'مستخدم',
+                        timestamp: Date.now()
+                    });
+                    await saveToFirebase(`users/${uid}/likes`, (user.likes || 0) + 1);
+                    currentLiked = true;
+                    showNotification('❤️ تم الإعجاب!', 'success');
+                }
+                
+                // تحديث الزر
+                const btn = document.querySelector('.like-btn');
+                if (btn) {
+                    btn.classList.toggle('liked', currentLiked);
+                    btn.innerHTML = `<i class="fas fa-heart"></i> ${currentLiked ? 'أعجبتني' : 'أعجبني'}`;
+                }
+                
+                // تحديث عدد الإعجابات
+                const statsSpan = document.querySelector('.profile-stats span:last-child');
+                if (statsSpan) {
+                    const newLikes = await loadFromFirebase(`users/${uid}/likes`);
+                    statsSpan.innerHTML = `<i class="fas fa-heart" style="color:#ff6b6b;"></i> ${newLikes || 0} إعجاب`;
+                }
+                
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                showNotification('❌ حدث خطأ', 'error');
+            }
+        }
+
         function contactFreelancer(email) {
             window.location.href = `mailto:${email}?subject=مرحباً من Vision+!`;
+        }
+
+        // ===== الحصول على المستخدم الحالي =====
+        function getCurrentUser() {
+            try {
+                const stored = sessionStorage.getItem('vp_user');
+                if (stored) return JSON.parse(stored);
+            } catch (error) {
+                console.error('Error getting current user:', error);
+            }
+            return null;
         }
 
         document.addEventListener('DOMContentLoaded', loadProfile);

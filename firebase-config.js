@@ -2,6 +2,7 @@
 // firebase-config.js
 // =====================================================
 
+// ⚠️ استبدل هذه القيم بمفاتيح مشروعك الفعلية من Firebase Console
 const firebaseConfig = {
     apiKey: "AIzaSyDummyKey123456789",
     authDomain: "vision-5d2d8.firebaseapp.com",
@@ -19,6 +20,10 @@ if (!firebase.apps || !firebase.apps.length) {
 
 const db = firebase.database();
 const vpAuth = firebase.auth();
+
+// تمكين المزودين
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+const githubProvider = new firebase.auth.GithubAuthProvider();
 
 // ===== دوال القراءة والكتابة =====
 async function loadFromFirebase(path) {
@@ -47,6 +52,17 @@ async function updateToFirebase(path, value) {
         return true;
     } catch (error) {
         console.error('Firebase update error:', error);
+        throw error;
+    }
+}
+
+async function pushToFirebase(path, value) {
+    try {
+        const ref = db.ref(path).push();
+        await ref.set(value);
+        return ref.key;
+    } catch (error) {
+        console.error('Firebase push error:', error);
         throw error;
     }
 }
