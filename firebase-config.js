@@ -1,8 +1,7 @@
 // =====================================================
-// firebase-config.js - الإصدار النهائي
+// firebase-config.js
 // =====================================================
 
-// ⚠️ استبدل apiKey بالمفتاح الحقيقي من Firebase Console
 const firebaseConfig = {
     apiKey: "AIzaSyD528qS0sFVsIIX4wRFZtWQwCkkiV7M-YY",
     authDomain: "vision-aa7a0.firebaseapp.com",
@@ -14,13 +13,13 @@ const firebaseConfig = {
 };
 
 // تهيئة Firebase
-try {
-    if (!firebase.apps.length) {
+if (typeof firebase !== 'undefined') {
+    if (!firebase.apps || !firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
         console.log('✅ Firebase initialized');
     }
-} catch (e) {
-    console.error('❌ Firebase init error:', e);
+} else {
+    console.error('❌ Firebase SDK not loaded!');
 }
 
 const db = firebase.database();
@@ -53,6 +52,17 @@ async function updateToFirebase(path, value) {
         return true;
     } catch (error) {
         console.error('Firebase update error:', error);
+        throw error;
+    }
+}
+
+async function pushToFirebase(path, value) {
+    try {
+        const ref = db.ref(path).push();
+        await ref.set(value);
+        return ref.key;
+    } catch (error) {
+        console.error('Firebase push error:', error);
         throw error;
     }
 }

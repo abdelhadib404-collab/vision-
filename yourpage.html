@@ -474,53 +474,37 @@
     <section class="yourpage-section" id="yourpage">
         <div class="yourpage-container">
             <!-- الخطوة 1: تسجيل الدخول -->
-            <div id="step-auth" class="step active">
-                <div class="yourpage-card">
-                    <h2><i class="fas fa-user-plus"></i> إنشاء حساب</h2>
-                    <p style="color:#5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
+   <!-- في yourpage.html، استبدل قسم step-auth بهذا -->
+<div id="step-auth" class="step active">
+    <div class="yourpage-card">
+        <h2><i class="fas fa-user-plus"></i> إنشاء حساب</h2>
+        <p style="color:#5a6f73; margin-bottom:25px;">انضم إلى Vision+ وابدأ رحلتك</p>
 
-                    <div class="form-group" id="email-login-box">
-                        <label><i class="fas fa-envelope"></i> أو ادخل مباشرة ببريدك الإلكتروني:</label>
-                        <div style="display:flex; gap:10px;">
-                            <input type="email" id="email-login-input" placeholder="example@email.com" style="flex:1; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
-                            <button class="next-btn" style="width:auto; padding:12px 22px; margin:0;" onclick="handleEmailLogin()">
-                                <i class="fas fa-arrow-left"></i> دخول
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="auth-or-divider">— أو —</div>
-
-                    <div class="auth-buttons" id="auth-buttons">
-                        <button class="auth-btn google-btn" onclick="handleProviderLogin('google')">
-                            <i class="fa-brands fa-google"></i> تسجيل الدخول بـ Google
-                        </button>
-                        <button class="auth-btn github-btn" onclick="handleProviderLogin('github')">
-                            <i class="fa-brands fa-github"></i> تسجيل الدخول بـ GitHub
-                        </button>
-                        <button class="auth-btn discord-btn" onclick="handleProviderLogin('discord')">
-                            <i class="fa-brands fa-discord"></i> تسجيل الدخول بـ Discord
-                        </button>
-                    </div>
-
-                    <div id="auth-loading" class="auth-loading" style="display:none;">
-                        <div class="loader" style="margin:0; width:26px; height:26px;"></div>
-                        <span>جاري تسجيل الدخول...</span>
-                    </div>
-
-                    <div id="auth-user-info" style="display:none; margin-top:25px; padding:20px; background:#f4f9fa; border-radius:15px;">
-                        <div class="profile-header-bar">
-                            <img id="auth-profile-pic" src="img/default-avatar.jpg" />
-                            <div class="info">
-                                <div class="name" id="auth-username">اسم المستخدم</div>
-                                <div class="email" id="auth-email">البريد الإلكتروني</div>
-                            </div>
-                        </div>
-                        <button class="next-btn" onclick="goToStep2()">متابعة <i class="fas fa-arrow-right"></i></button>
-                    </div>
-                </div>
+        <div class="form-group">
+            <label><i class="fas fa-envelope"></i> البريد الإلكتروني:</label>
+            <div style="display:flex; gap:10px;">
+                <input type="email" id="email-login-input" placeholder="example@email.com" style="flex:1; padding:12px; border-radius:50px; border:2px solid #dce8ea; font-weight:400;" />
+                <button class="next-btn" style="width:auto; padding:12px 22px; margin:0;" onclick="handleEmailLogin()">
+                    <i class="fas fa-arrow-left"></i> دخول
+                </button>
             </div>
+        </div>
 
+        <div id="auth-or-divider" style="text-align:center; color:#5a6f73; margin:15px 0;">— أو —</div>
+
+        <div class="auth-buttons">
+            <button class="auth-btn google-btn" onclick="handleProviderLogin('google')">
+                <i class="fa-brands fa-google"></i> تسجيل الدخول بـ Google
+            </button>
+            <button class="auth-btn github-btn" onclick="handleProviderLogin('github')">
+                <i class="fa-brands fa-github"></i> تسجيل الدخول بـ GitHub
+            </button>
+            <button class="auth-btn discord-btn" onclick="handleProviderLogin('discord')">
+                <i class="fa-brands fa-discord"></i> تسجيل الدخول بـ Discord
+            </button>
+        </div>
+    </div>
+</div>
             <!-- الخطوة 2: الملف الشخصي -->
             <div id="step-profile" class="step" style="display:none;">
                 <div class="yourpage-card">
