@@ -4,13 +4,13 @@
 
 // ⚠️ استبدل هذه القيم بمفاتيح مشروعك الفعلية من Firebase Console
 const firebaseConfig = {
-    apiKey: "AIzaSyDummyKey123456789",
+    apiKey: "AIzaSyD528qS0sFVsIIX4wRFZtWQwCkkiv7M-YY",
     authDomain: "vision-5d2d8.firebaseapp.com",
-    databaseURL: "https://vision-aa7a0-default-rtdb.firebaseio.com/",
-    projectId: "vision-5d2d8",
-    storageBucket: "vision-5d2d8.firebasestorage.app",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdef123456"
+    databaseURL: "https://vision-aa7a0-default-rtdb.firebaseio.com",
+    projectId: "vision-aa7a0",
+    storageBucket: "vision-aa7a0.firebasestorage.app",
+    messagingSenderId: "817634922019",
+    appId: "1:817634922019:web:7154cbfe04d029e5d7eb96"
 };
 
 // تهيئة Firebase
