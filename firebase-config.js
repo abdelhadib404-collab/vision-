@@ -6,7 +6,7 @@
 const firebaseConfig = {
     apiKey: "AIzaSyDummyKey123456789",
     authDomain: "vision-5d2d8.firebaseapp.com",
-    databaseURL: "https://vision-5d2d8-default-rtdb.firebaseio.com/",
+    databaseURL: "https://vision-aa7a0-default-rtdb.firebaseio.com/",
     projectId: "vision-5d2d8",
     storageBucket: "vision-5d2d8.firebasestorage.app",
     messagingSenderId: "123456789012",
